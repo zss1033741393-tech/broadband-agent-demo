@@ -1,0 +1,79 @@
+{# 多阶段洞察报告模板 — 对应 ce_insight_core 驱动的 plan → phase → step → reflect 产物 #}
+# {{ title | default("网络质量数据洞察报告") }}
+
+**生成时间**: {{ timestamp }}
+{% if goal %}
+**分析目标**: {{ goal }}
+{% endif %}
+
+---
+
+{% if summary %}
+## 摘要
+
+| 项目 | 值 |
+|---|---|
+| 问题 PON 口 | {{ summary.priority_pons | join(", ") if summary.priority_pons else "无" }} |
+| 问题网关 | {{ summary.priority_gateways | join(", ") if summary.priority_gateways else "无" }} |
+| 异常类型 | {{ summary.distinct_issues | join("、") if summary.distinct_issues else "无" }} |
+| 波及范围 | {{ summary.scope_indicator | default("未知") }} |
+| 高峰时段 | {{ summary.peak_time_window | default("未识别") }} |
+| 是否含投诉 | {{ "是" if summary.has_complaints else "否" }} |
+| 根因字段 | {{ summary.root_cause_fields | join(", ") if summary.root_cause_fields else "未定位" }} |
+| 建议远程闭环 | {{ summary.remote_loop_candidates | join(", ") if summary.remote_loop_candidates else "无" }} |
+
+{% endif %}
+
+{% if phases %}
+## 分析路径
+
+{% for phase in phases %}
+### Phase {{ phase.phase_id }} — {{ phase.name }}
+
+**里程碑**: {{ phase.milestone }}
+{% if phase.table_level %}**数据表**: {{ phase.table_level }} 表{% endif %}
+{% if phase.focus_dimensions %}**聚焦维度**: {{ phase.focus_dimensions | join(", ") }}{% endif %}
+
+{% if phase.steps %}
+#### 执行步骤
+
+{% for step in phase.steps %}
+**Step {{ step.step_id }} · {{ step.insight_type }}** (显著性: {{ "%.2f" | format(step.significance | default(0)) }})
+
+{% if step.description %}
+{% if step.description is mapping %}
+- {{ step.description.get("summary", step.description | string) }}
+{% else %}
+- {{ step.description }}
+{% endif %}
+{% endif %}
+{% if step.rationale %}
+- *目的*: {{ step.rationale }}
+{% endif %}
+{% if step.found_entities %}
+- *命中实体*: {% for k, v in step.found_entities.items() %}{{ k }}=[{{ v | join(", ") }}]{% if not loop.last %}; {% endif %}{% endfor %}
+{% endif %}
+{% if step.fix_warnings %}
+- *字段修复警告*: {{ step.fix_warnings | join("; ") }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if phase.reflection and phase.reflection.choice %}
+#### 反思
+**决策**: {{ phase.reflection.choice }} — {{ phase.reflection.reason | default("") }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if conclusion %}
+## 结论
+
+{{ conclusion }}
+{% endif %}
+
+---
+
+*此报告由家宽网络调优智能助手自动生成*

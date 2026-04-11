@@ -1,0 +1,10 @@
+# 数据洞察 — 天表 / 分钟表文件路径配置
+#
+# 填入你本地的 parquet 文件绝对路径即可。
+# 设为 "mock" 或留空则使用 Mock 假数据。
+#
+# Windows 路径示例：D:\data\day_table.parquet
+# Linux/Mac 示例：  /home/user/data/day_table.parquet
+
+day_table_path: "mock"
+minute_table_path: "mock"

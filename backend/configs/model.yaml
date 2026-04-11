@@ -1,0 +1,17 @@
+provider: openai         # openai | openai_like | openrouter
+base_url: https://api.openai.com/v1
+# API Key: 直接填写 api_key，或通过 api_key_env 指定环境变量名
+api_key: ""              # 直接配置 API Key（优先级高于 api_key_env）
+api_key_env: OPENAI_API_KEY  # 备选：从环境变量读取
+model: gpt-4o-mini
+temperature: 0.3
+max_tokens: 4096
+timeout: 60
+
+# 角色映射（可选）— 用于不支持 developer 角色的 OpenAI 兼容 API（如 Qwen、DeepSeek 等）
+# 取消注释以下内容即可将 system 角色保持为 system（而非 OpenAI 新规的 developer）
+role_map:
+  system: system
+  user: user
+  assistant: assistant
+  tool: tool

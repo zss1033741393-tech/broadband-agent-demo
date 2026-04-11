@@ -1,0 +1,47 @@
+wifi_simulation:
+  # 场景描述
+  scenario:
+    name: "家庭无线仿真"
+    layout: "3室1厅"              # 户型
+    area_sqm: 100                 # 面积(平方米)
+    wall_count: 5                 # 隔墙数量
+    wall_material: "brick"        # 墙体材质: brick | concrete | wood | glass
+    floor_count: 1                # 楼层数
+
+  # AP 配置
+  access_points:
+    - id: "AP-1"
+      position: [5.0, 5.0]       # 坐标(米)
+      band: "dual"                # 2.4G | 5G | dual
+      channel_2g: 6
+      channel_5g: 36
+      tx_power_dbm: 20
+      standard: "wifi6"           # wifi5 | wifi6 | wifi6e
+
+  # 终端设备
+  stations:
+    - id: "STA-1"
+      type: "phone"
+      position: [8.0, 3.0]
+      standard: "wifi6"
+    - id: "STA-2"
+      type: "laptop"
+      position: [2.0, 7.0]
+      standard: "wifi5"
+    - id: "STA-3"
+      type: "smart_tv"
+      position: [9.0, 8.0]
+      standard: "wifi6"
+
+  # 仿真参数
+  simulation:
+    duration_minutes: 30
+    traffic_model: "mixed"        # video | gaming | mixed | browsing
+    interference_level: "medium"  # low | medium | high
+    num_iterations: 100
+
+  # 评估指标
+  evaluation:
+    coverage_threshold_dbm: -70   # 覆盖信号强度阈值
+    throughput_target_mbps: 100   # 目标吞吐量
+    latency_target_ms: 20        # 目标时延

@@ -1,0 +1,27 @@
+# ⚠️ 本文件为 pip 兼容用途。规范依赖源是 pyproject.toml。
+# uv 用户请使用: uv sync (自动安装 + editable vendor 子包)
+# pip 用户请使用: pip install -r requirements.txt
+
+agno>=2.5.14,<3.0
+openai>=1.0.0
+gradio>=4.0.0
+httptools>=0.6
+loguru>=0.7.0
+pyyaml>=6.0
+jinja2>=3.0
+aiofiles>=23.0
+sqlalchemy>=2.0
+
+# data_insight 依赖（科学计算栈 + 沙箱）— 由本地 wheel ce_insight_core 拉起
+pandas>=2.0
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.3
+pydantic>=2.0
+-e ./vendor/ce_insight_core
+
+# wifi_simulation 依赖（图像处理 + 信号仿真 + 可视化）
+opencv-python-headless>=4.8
+matplotlib>=3.7
+typer>=0.9
+rich>=13.0

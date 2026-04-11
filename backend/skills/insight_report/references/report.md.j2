@@ -1,0 +1,43 @@
+# {{ title | default("网络质量数据洞察报告") }}
+
+**生成时间**: {{ timestamp }}
+
+---
+
+{% if summary %}
+## 摘要
+
+| 项目 | 值 |
+|---|---|
+| 问题 PON 口 | {{ summary.priority_pons | join(", ") if summary.priority_pons else "无" }} |
+| 观察 PON 口 | {{ summary.watch_pons | join(", ") if summary.watch_pons else "无" }} |
+| 异常类型 | {{ summary.distinct_issues | join("、") if summary.distinct_issues else "无" }} |
+| 波及范围 | {{ summary.scope_indicator | default("未知") }} |
+| 高峰时段 | {{ summary.peak_time_window | default("未识别") }} |
+| 投诉汇总 | {{ summary.total_complaints_7d | default(0) }} 次 / 7 日 |
+| 建议远程闭环 | {{ summary.remote_loop_candidates | join(", ") if summary.remote_loop_candidates else "无" }} |
+
+{% endif %}
+
+{% if analysis %}
+## PON 口分析
+
+{% for item in analysis %}
+### {{ item.pon_port }} (CEI: {{ item.cei_score }})
+
+{% if item.issues %}**问题**:
+{% for issue in item.issues %}- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if item.probable_causes %}**可能原因**:
+{% for cause in item.probable_causes %}- {{ cause }}
+{% endfor %}
+{% endif %}
+**建议**: {{ item.recommendation }}
+
+{% endfor %}
+{% endif %}
+
+---
+
+*此报告由家宽网络调优智能助手自动生成*

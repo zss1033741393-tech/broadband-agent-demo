@@ -1,0 +1,37 @@
+root: user_type
+slots:
+  user_type:
+    required: true
+    enum: [主播用户, 游戏用户, VVIP用户]
+    prompt: "请问您是哪类用户？"
+    next: package_type
+  package_type:
+    required: true
+    enum: [普通套餐, 直播套餐, 专线套餐]
+    prompt: "您当前使用的是哪种套餐？"
+    next: scenario
+  scenario:
+    required: true
+    depends_on: package_type
+    branches:
+      普通套餐: [家庭直播]
+      直播套餐: [卖场走播, 楼宇直播]
+      专线套餐: [卖场走播, 楼宇直播]
+    prompt: "请选择具体场景"
+    next: [guarantee_target, time_window]
+  guarantee_target:
+    required: true
+    enum: [家庭网络, STA级, 整网]
+    prompt: "您希望保障的范围是？"
+  time_window:
+    required: true
+    type: string
+    prompt: "需要保障的时间段是？（例如 18:00-22:00 或 全天）"
+  guarantee_app:
+    required: false
+    type: string
+    prompt: "需要重点保障的应用是什么？（如抖音/王者荣耀，可跳过）"
+  complaint_history:
+    required: false
+    type: bool
+    prompt: "该用户是否有投诉历史？（是/否，可跳过）"

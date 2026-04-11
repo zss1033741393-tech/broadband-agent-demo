@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ce_insight_core"
+version = "0.1.0"
+description = "CE-Insight 2.0 核心库：三元组查询、12 种洞察策略、天表/分钟表 Schema、NL2Code 沙箱"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "broadband-agent team" }]
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "pydantic>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ce_insight_core*"]
+
+[tool.setuptools.package-data]
+"ce_insight_core" = ["py.typed"]

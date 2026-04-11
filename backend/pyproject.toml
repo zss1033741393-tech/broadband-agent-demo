@@ -1,0 +1,59 @@
+# 本项目是**应用**（不是库），不声明 [build-system]。
+# uv 会把它当 virtual project：只安装 dependencies，不尝试构建自身。
+
+[project]
+name = "broadband-agent"
+version = "0.1.0"
+description = "家宽网络调优智能助手 — agno Team + 10 Skills 多智能体系统"
+requires-python = ">=3.11"
+license = "Proprietary"
+authors = [{ name = "broadband-agent team" }]
+dependencies = [
+    # ── agno 框架 + LLM ──
+    "agno>=2.5.14,<3.0",
+    "openai>=1.0.0",
+    # ── Web UI ──
+    "gradio>=4.0.0",
+    "httptools>=0.6",               # uvicorn (Gradio 内部) 在 Windows 上需要兼容版本
+    # ── 基础设施 ──
+    "loguru>=0.7.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.0",
+    "aiofiles>=23.0",
+    "sqlalchemy>=2.0",              # agno.db.sqlite 需要，agno 未声明为强制依赖
+    # ── 科学计算栈 (data_insight / ce_insight_core) ──
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "pydantic>=2.0",
+    # ── vendor 本地包 ──
+    "ce-insight-core",
+    # ── wifi_simulation 依赖（图像处理 + 信号仿真 + 可视化）──
+    "opencv-python-headless>=4.8",
+    "matplotlib>=3.7",
+    "typer>=0.9",
+    "rich>=13.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1",
+]
+
+# uv 从本地 vendor 路径解析 ce-insight-core，editable 模式安装
+[tool.uv.sources]
+ce-insight-core = { path = "vendor/ce_insight_core", editable = true }
+
+# ── ruff 配置 ──
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
