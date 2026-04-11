@@ -1,0 +1,22 @@
+; Fae POC 客户端配置模板
+;
+; 使用方式：
+;   1. 复制为 config.ini: cp config.ini.example config.ini
+;   2. 填入真实 base_url / csrf_token / cookie
+;   3. 确保 NCELogin.py 已放在同目录（fae_poc/NCELogin.py）
+;
+; 注意：config.ini 被 .gitignore 忽略，请勿提交真实凭证。
+
+[API]
+; FAE 平台基地址，如 https://fae.example.com
+base_url = https://<FAE_HOST>
+
+; 请求超时（秒），默认 30
+timeout = 30
+
+[AuthTokens]
+; 登录后从浏览器/抓包工具获取的 csrf token
+csrf_token = <YOUR_CSRF_TOKEN>
+
+; 完整 cookie 字符串（含 session id 等）
+cookie = <YOUR_COOKIE_STRING>

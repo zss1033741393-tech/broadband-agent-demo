@@ -1,0 +1,40 @@
+{
+  "fault_config": {
+    "fault_tree_enabled": {{ fault_tree_enabled | lower }},
+    "severity_threshold": "{{ severity_threshold }}",
+    "whitelist_rules": [{% for rule in whitelist_rules %}"{{ rule }}"{{ ", " if not loop.last else "" }}{% endfor %}],
+    "detection_rules": [
+      {
+        "rule_id": "AUTO-FAULT-001",
+        "name": "光功率异常检测",
+        "condition": {
+          "metric": "rx_optical_power_dbm",
+          "operator": "less_than",
+          "threshold": -25.0
+        },
+        "severity": "critical"
+      },
+      {
+        "rule_id": "AUTO-FAULT-002",
+        "name": "丢包率监控",
+        "condition": {
+          "metric": "packet_loss_rate",
+          "operator": "greater_than",
+          "threshold": 0.02
+        },
+        "severity": "{{ severity_threshold }}"
+      },
+      {
+        "rule_id": "AUTO-FAULT-003",
+        "name": "时延监控",
+        "condition": {
+          "metric": "latency_ms",
+          "operator": "greater_than",
+          "threshold": 50
+        },
+        "severity": "{{ severity_threshold }}"
+      }
+    ],
+    "notification_level": "batch"
+  }
+}

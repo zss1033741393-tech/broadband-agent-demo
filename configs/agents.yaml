@@ -1,0 +1,67 @@
+# 家宽网络调优 Team 配置
+#
+# 结构:
+#   team  — Team leader (Orchestrator) 配置
+#   agents — 5 个 SubAgent (1 决策型 Planning + 1 决策型 Insight + 3 执行型 Provisioning 实例)
+#
+# agno Team 不支持运行时动态添加 member，因此预声明 3 个 Provisioning 实例覆盖场景 1 的并行需求。
+
+team:
+  name: home-broadband-team
+  mode: coordinate
+  prompt: prompts/orchestrator.md
+  description: "家宽网络调优助手团队：识别意图 → 路由 / 拆分 → 派发执行 → 汇总结果"
+  memory:
+    max_turns: 30
+
+agents:
+  # ─── 决策型 Agent ───
+  planning:
+    prompt: prompts/planning.md
+    description: "方案规划专家：目标解析 + 方案设计 + 方案评审，产出分段 Markdown 方案"
+    skills:
+      - goal_parsing
+      - plan_design
+      - plan_review
+    memory:
+      max_turns: 20
+
+  insight:
+    prompt: prompts/insight.md
+    description: "数据洞察分析师：按 Plan→Decompose→Execute→Reflect→Report 五阶段产出数据洞察报告"
+    skills:
+      - insight_plan
+      - insight_decompose
+      - insight_query
+      - insight_nl2code
+      - insight_reflect
+      - insight_report
+    memory:
+      max_turns: 10
+
+  # ─── 执行型 Agent (3 个预声明实例，共享 provisioning.md) ───
+  provisioning_wifi:
+    prompt: prompts/provisioning.md
+    description: "WIFI 仿真执行专家：驱动户型图识别→热力图→RSSI 采集→选点对比 4 步流水线"
+    skills:
+      - wifi_simulation
+    memory:
+      max_turns: 10
+
+  provisioning_delivery:
+    prompt: prompts/provisioning.md
+    description: "差异化承载执行专家：切片配置与应用白名单 (Appflow / 抖音切片等)"
+    skills:
+      - differentiated_delivery
+    memory:
+      max_turns: 10
+
+  provisioning_cei_chain:
+    prompt: prompts/provisioning.md
+    description: "体验保障链执行专家：CEI 权重配置→（中间态 mock 评分）→故障诊断→远程闭环的条件串行 workflow"
+    skills:
+      - cei_pipeline
+      - fault_diagnosis
+      - remote_optimization
+    memory:
+      max_turns: 15
