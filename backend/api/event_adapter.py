@@ -307,28 +307,35 @@ def _accumulate_insight(
     result_raw: Any,
     sub_step_id: str,
 ) -> None:
-    """解析 skill stdout，将图表或报告累积到 InsightAccumulator。"""
+    """解析 skill stdout，将图表或报告累积到 InsightAccumulator。
+
+    新 InsightAgent 使用的 skill 名：
+      - insight_query   → JSON stdout，含 chart_configs（ECharts option）
+      - insight_report  → Markdown stdout
+    其余 skill（insight_plan / insight_decompose / insight_nl2code / insight_reflect）
+    不产出可视化内容，跳过。
+    """
     parsed = _parse_stdout(result_raw)
     if parsed is None:
         return
 
-    if skill_name == "data_insight" and isinstance(parsed, dict):
-        echarts = parsed.get("echarts_option")
+    if skill_name == "insight_query" and isinstance(parsed, dict):
+        echarts = parsed.get("chart_configs")
         if not echarts:
             return
-        stage = parsed.get("stage", "query")
-        summary = parsed.get("summary", {})
 
-        # title 优先取 echarts_option.title.text
+        description = parsed.get("description", "")
+        significance = parsed.get("significance", 0.0)
+
+        # title 优先取 chart_configs.title.text
         title = ""
         ec_title = echarts.get("title", {})
         if isinstance(ec_title, dict):
             title = ec_title.get("text", "")
         if not title:
-            title = "PON 口 CEI 评分排名" if stage == "query" else "异常指标分析"
+            title = str(parsed.get("insight_type", "洞察分析"))
 
-        # conclusion 从 summary 生成
-        conclusion = _build_conclusion(stage, summary)
+        conclusion = _build_insight_conclusion(description, significance)
 
         acc.charts.append({
             "chartId": f"{sub_step_id}_{len(acc.charts) + 1}",
@@ -337,40 +344,24 @@ def _accumulate_insight(
             "echartsOption": echarts,
         })
 
-    elif skill_name == "report_rendering":
+    elif skill_name == "insight_report":
         # stdout 是纯 Markdown 文本
         if isinstance(parsed, str):
             acc.markdown_report = parsed
         elif isinstance(parsed, dict):
-            # 兜底：万一返回了 JSON
             acc.markdown_report = str(parsed)
 
 
-def _build_conclusion(stage: str, summary: dict) -> str:
-    """从 data_insight summary 生成图表结论文字。"""
-    if stage == "query":
-        priority = summary.get("priority_pons", [])
-        watch = summary.get("watch_pons", [])
-        parts = []
-        if priority:
-            parts.append(f"需重点关注 {', '.join(priority)}")
-        if watch:
-            parts.append(f"持续监控 {', '.join(watch)}")
-        peak = summary.get("peak_time_window")
-        if peak:
-            parts.append(f"高峰时段 {peak}")
-        return "；".join(parts) if parts else "数据查询完成"
-    elif stage == "attribution":
-        issues = summary.get("distinct_issues", [])
-        scope = summary.get("scope_indicator", "")
-        scope_text = {"single_pon": "单 PON 口", "multi_pon": "多 PON 口", "regional": "区域性"}.get(scope, "")
-        parts = []
-        if scope_text:
-            parts.append(f"{scope_text}问题")
-        if issues:
-            parts.append("；".join(issues[:3]))
-        return "；".join(parts) if parts else "归因分析完成"
-    return ""
+def _build_insight_conclusion(description: Any, significance: float) -> str:
+    """从 insight_query 结果生成图表结论文字。"""
+    desc_str = ""
+    if isinstance(description, str):
+        desc_str = description.strip()
+    elif isinstance(description, dict):
+        desc_str = description.get("summary", str(description))
+    sig_text = f"显著性 {significance:.2f}" if significance > 0 else ""
+    parts = [p for p in [desc_str, sig_text] if p]
+    return "；".join(parts) if parts else "洞察分析完成"
 
 
 def _build_insight_render(acc: InsightAccumulator) -> dict | None:
