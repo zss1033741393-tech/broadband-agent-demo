@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { getMessages, sendMessageStream } from '@/api/messages';
+
+import { useConversationStore } from '@/store/conversationStore';
 import { parseSseStream } from '@/utils/sseParser';
 import type { Message, Step, SubStep, MessageBlock } from '@/types/message';
 import type { RenderBlock } from '@/types/render';
@@ -7,6 +9,7 @@ import type {
   DoneEvent,
   ErrorEvent as SseErrorEvent,
   StepStartEvent,
+  StepEndEvent,
   SubStepEvent,
   TextEvent,
   ThinkingEvent,
@@ -49,9 +52,13 @@ function newId(prefix: string) {
 function rebuildBlocks(m: Message): MessageBlock[] {
   const blocks: MessageBlock[] = [];
   if (m.thinkingContent?.trim()) {
-    blocks.push({ type: 'thinking', content: m.thinkingContent });
+    // 历史消息无时间戳，startedAt/endedAt 用 0 占位，durationSec 显示为 thinkingDurationSec
+    blocks.push({ type: 'thinking', content: m.thinkingContent, startedAt: 0, endedAt: 0 });
   }
   for (const step of m.steps ?? []) {
+    // 历史消息的 step：items 从 subSteps 重建，无 thinking 信息
+    step.completed = true;
+    step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
     blocks.push({ type: 'step', stepId: step.stepId });
   }
   if (m.content?.trim()) {
@@ -114,8 +121,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   sendMessage: async (content, deepThinking) => {
-    const { activeConversationId, isStreaming } = get();
+    const { activeConversationId, isStreaming, messages } = get();
     if (!activeConversationId || isStreaming) return;
+
+    // 首条消息时用 query 作为会话标题
+    const isFirstMessage = messages.filter((m) => m.role === 'user').length === 0;
+    if (isFirstMessage) {
+      const title = content.trim().slice(0, 30);
+      useConversationStore.getState().updateTitle(activeConversationId, title).catch(() => {});
+    }
 
     // 1) 立即追加用户消息
     const userMsg: Message = {
@@ -167,15 +181,46 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           switch (e.event) {
             case 'thinking': {
               const d = e.data as ThinkingEvent;
-              updateAssistant((m) => {
-                const blocks = m.blocks ?? [];
-                const last = blocks[blocks.length - 1];
-                const newBlocks: MessageBlock[] =
-                  last?.type === 'thinking'
-                    ? [...blocks.slice(0, -1), { type: 'thinking', content: last.content + d.delta }]
-                    : [...blocks, { type: 'thinking', content: d.delta }];
-                return { ...m, blocks: newBlocks, thinkingContent: (m.thinkingContent ?? '') + d.delta };
-              });
+              if (d.stepId) {
+                // SubAgent 思考：追加到 step 的 items[]
+                updateAssistant((m) => ({
+                  ...m,
+                  steps: (m.steps ?? []).map((s) => {
+                    if (s.stepId !== d.stepId) return s;
+                    const items = s.items ?? [];
+                    const last = items[items.length - 1];
+                    if (last?.type === 'thinking' && !last.endedAt) {
+                      // 追加到当前 thinking block
+                      return {
+                        ...s,
+                        items: [
+                          ...items.slice(0, -1),
+                          { ...last, content: last.content + d.delta },
+                        ],
+                      };
+                    }
+                    // 新建 thinking block，前端打开始时间戳
+                    return {
+                      ...s,
+                      items: [
+                        ...items,
+                        { type: 'thinking' as const, content: d.delta, startedAt: Date.now() },
+                      ],
+                    };
+                  }),
+                }));
+              } else {
+                // Orchestrator 思考：追加到 blocks[] 的 thinking block
+                updateAssistant((m) => {
+                  const blocks = m.blocks ?? [];
+                  const last = blocks[blocks.length - 1];
+                  const newBlocks: MessageBlock[] =
+                    last?.type === 'thinking' && !last.endedAt
+                      ? [...blocks.slice(0, -1), { ...last, content: last.content + d.delta }]
+                      : [...blocks, { type: 'thinking', content: d.delta, startedAt: Date.now() }];
+                  return { ...m, blocks: newBlocks, thinkingContent: (m.thinkingContent ?? '') + d.delta };
+                });
+              }
               break;
             }
             case 'text': {
@@ -183,22 +228,35 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               updateAssistant((m) => {
                 const blocks = m.blocks ?? [];
                 const last = blocks[blocks.length - 1];
+                // 关闭前一个 thinking block（如果有）
+                const closedBlocks = last?.type === 'thinking' && !last.endedAt
+                  ? [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
+                  : blocks;
+                const prevLast = closedBlocks[closedBlocks.length - 1];
                 const newBlocks: MessageBlock[] =
-                  last?.type === 'text'
-                    ? [...blocks.slice(0, -1), { type: 'text', content: last.content + d.delta }]
-                    : [...blocks, { type: 'text', content: d.delta }];
+                  prevLast?.type === 'text'
+                    ? [...closedBlocks.slice(0, -1), { type: 'text', content: prevLast.content + d.delta }]
+                    : [...closedBlocks, { type: 'text', content: d.delta }];
                 return { ...m, blocks: newBlocks, content: m.content + d.delta };
               });
               break;
             }
             case 'step_start': {
               const d = e.data as StepStartEvent;
-              const newStep: Step = { stepId: d.stepId, title: d.title, subSteps: [] };
-              updateAssistant((m) => ({
-                ...m,
-                blocks: [...(m.blocks ?? []), { type: 'step', stepId: d.stepId }],
-                steps: [...(m.steps ?? []), newStep],
-              }));
+              const newStep: Step = { stepId: d.stepId, title: d.title, subSteps: [], items: [] };
+              updateAssistant((m) => {
+                const blocks = m.blocks ?? [];
+                const last = blocks[blocks.length - 1];
+                // 关闭前一个 thinking block（如果有）
+                const closedBlocks = last?.type === 'thinking' && !last.endedAt
+                  ? [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
+                  : blocks;
+                return {
+                  ...m,
+                  blocks: [...closedBlocks, { type: 'step', stepId: d.stepId }],
+                  steps: [...(m.steps ?? []), newStep],
+                };
+              });
               break;
             }
             case 'sub_step': {
@@ -206,21 +264,49 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               const sub: SubStep = {
                 subStepId: d.subStepId,
                 name: d.name,
-                result: d.result,
+                scriptPath: d.scriptPath,
+                callArgs: d.callArgs,
+                stdout: d.stdout,
+                stderr: d.stderr,
                 completedAt: d.completedAt,
                 durationMs: d.durationMs,
               };
-              // sub_step 只更新 steps[]，blocks 通过 stepId 引用无需改动
               updateAssistant((m) => ({
                 ...m,
-                steps: (m.steps ?? []).map((s) =>
-                  s.stepId === d.stepId ? { ...s, subSteps: [...s.subSteps, sub] } : s,
-                ),
+                steps: (m.steps ?? []).map((s) => {
+                  if (s.stepId !== d.stepId) return s;
+                  // 关闭当前正在流式的 thinking block（打 endedAt 时间戳）
+                  const closedItems = (s.items ?? []).map((item, idx) =>
+                    idx === s.items.length - 1 && item.type === 'thinking' && !item.endedAt
+                      ? { ...item, endedAt: Date.now() }
+                      : item,
+                  );
+                  return {
+                    ...s,
+                    subSteps: [...s.subSteps, sub],
+                    items: [...closedItems, { type: 'sub_step' as const, data: sub }],
+                  };
+                }),
               }));
               break;
             }
-            case 'step_end':
+            case 'step_end': {
+              const d = e.data as StepEndEvent;
+              updateAssistant((m) => ({
+                ...m,
+                steps: (m.steps ?? []).map((s) => {
+                  if (s.stepId !== d.stepId) return s;
+                  // 关闭最后一个 thinking block（如果有）
+                  const closedItems = (s.items ?? []).map((item, idx) =>
+                    idx === s.items.length - 1 && item.type === 'thinking' && !item.endedAt
+                      ? { ...item, endedAt: Date.now() }
+                      : item,
+                  );
+                  return { ...s, completed: true, items: closedItems };
+                }),
+              }));
               break;
+            }
             case 'render': {
               const block = e.data as RenderBlock;
               updateAssistant((m) => ({
@@ -232,11 +318,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             }
             case 'done': {
               const d = e.data as DoneEvent;
-              updateAssistant((m) => ({
-                ...m,
-                streaming: false,
-                thinkingDurationSec: d.thinkingDurationSec,
-              }));
+              updateAssistant((m) => {
+                const blocks = m.blocks ?? [];
+                const last = blocks[blocks.length - 1];
+                const closedBlocks = last?.type === 'thinking' && !last.endedAt
+                  ? [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
+                  : blocks;
+                return {
+                  ...m,
+                  blocks: closedBlocks,
+                  streaming: false,
+                  thinkingDurationSec: d.thinkingDurationSec,
+                };
+              });
               break;
             }
             case 'error': {

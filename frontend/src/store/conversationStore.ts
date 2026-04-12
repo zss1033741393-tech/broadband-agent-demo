@@ -8,6 +8,7 @@ interface ConversationState {
 
   fetch: () => Promise<void>;
   create: (title?: string) => Promise<Conversation>;
+  updateTitle: (id: string, title: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -29,6 +30,13 @@ export const useConversationStore = create<ConversationState>((set, get) => ({
     const conv = await api.createConversation(title);
     set({ list: [conv, ...get().list] });
     return conv;
+  },
+
+  updateTitle: async (id: string, title: string) => {
+    await api.updateConversationTitle(id, title);
+    set({
+      list: get().list.map((c) => (c.id === id ? { ...c, title } : c)),
+    });
   },
 
   remove: async (id: string) => {
