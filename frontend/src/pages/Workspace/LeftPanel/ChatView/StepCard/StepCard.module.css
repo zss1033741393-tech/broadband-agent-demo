@@ -39,6 +39,12 @@
   flex-shrink: 0;
 }
 
+.statusIconLoading {
+  color: #1677ff;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
 .title {
   flex: 1;
   text-align: left;
@@ -69,7 +75,7 @@
 }
 
 .body {
-  padding: 4px 20px 16px 22px;
+  padding: 8px 20px 16px 22px;
   border-top: 1px solid #1f2937;
 }
 
@@ -80,12 +86,122 @@
   font-size: 13px;
 }
 
-.timeline {
-  list-style: none;
-  margin: 0;
-  padding: 16px 0 0;
+/* ── items 有序列表（thinking + sub_step 穿插） ── */
+.itemList {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
 }
 
+/* ── inline thinking block ── */
+.thinkingItem {
+  margin-bottom: 6px;
+  border-left: 2px solid #1f2937;
+  padding-left: 10px;
+}
+
+.thinkingToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 12px;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.thinkingToggle:hover {
+  color: #9ca3af;
+}
+
+.thinkingIconLoading {
+  color: #1677ff;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.thinkingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #374151;
+  flex-shrink: 0;
+}
+
+.thinkingLabel {
+  flex: 1;
+  font-style: italic;
+}
+
+.thinkingArrow {
+  font-size: 9px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.thinkingArrowOpen {
+  transform: rotate(90deg);
+}
+
+.thinkingPreview {
+  position: relative;
+  height: 46px;
+  overflow: hidden;
+}
+
+.thinkingPreviewFade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 16px;
+  background: linear-gradient(to bottom, #161b22, transparent);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.thinkingPreviewText {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  color: #4b5563;
+  font-style: italic;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow: hidden;
+}
+
+.thinkingBody {
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  padding: 2px 0 8px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.thinkingBody::-webkit-scrollbar {
+  width: 3px;
+}
+
+.thinkingBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thinkingBody::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 2px;
+}
+
+/* ── sub_step timeline item ── */
 .tlItem {
   position: relative;
   padding-left: 18px;
@@ -150,8 +266,86 @@
   flex-shrink: 0;
 }
 
+.tlCall {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 3px 0;
+}
+
+.tlCallLabel {
+  font-size: 10px;
+  color: #4b5563;
+  background: #1f2937;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.tlCallScript {
+  font-size: 11px;
+  color: #93c5fd;
+  background: transparent;
+  font-family: monospace;
+}
+
+.tlCallArgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.tlCallArg {
+  font-size: 10px;
+  color: #9ca3af;
+  background: #1a2332;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
 .tlResult {
-  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tlStdout {
+  border-left: 2px solid #22c55e33;
+  padding-left: 8px;
+}
+
+.tlStderr {
+  border-left: 2px solid #ef444433;
+  padding-left: 8px;
+}
+
+.tlOutputLabel {
+  font-size: 10px;
+  color: #6b7280;
+  font-family: monospace;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.tlStdout .tlOutputLabel { color: #4ade80; }
+.tlStderr .tlOutputLabel { color: #f87171; }
+
+.tlOutputContent {
+  font-size: 11px;
   color: #9ca3af;
   line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  max-height: 120px;
+  overflow-y: auto;
+  background: transparent;
 }
