@@ -1,0 +1,463 @@
+{
+  "_comment": "SSE 事件流样本。每个对象代表一个 SSE 帧：{ event, data }。前端按到达顺序处理。",
+  "_format": "实际传输格式: 'event: <type>\\ndata: <json>\\n\\n'",
+
+  "scenarios": {
+
+    "scenario_1_comprehensive": {
+      "_desc": "综合目标请求：Orchestrator thinking → PlanningAgent → Provisioning(s) → 最终 text",
+      "events": [
+        {
+          "_seq": 1,
+          "_phase": "THINKING（Orchestrator，无 stepId）",
+          "event": "thinking",
+          "data": { "delta": "用户提到了家宽网络卡顿，需要先判断是 WIFI 覆盖问题还是承载配置问题..." }
+        },
+        {
+          "_seq": 2,
+          "_phase": "THINKING（Orchestrator）",
+          "event": "thinking",
+          "data": { "delta": "同时存在多个子问题，应该走综合优化流程，先调用 PlanningAgent 解析目标..." }
+        },
+        {
+          "_seq": 3,
+          "_phase": "THINKING（Orchestrator）",
+          "event": "thinking",
+          "data": { "delta": "需要规划 WIFI 仿真 + 差异化承载 + CEI 体验保障链三路并行执行。" }
+        },
+        {
+          "_seq": 4,
+          "_phase": "STEP: planning START",
+          "event": "step_start",
+          "data": { "stepId": "planning", "title": "PlanningAgent" }
+        },
+        {
+          "_seq": 5,
+          "_phase": "THINKING（PlanningAgent，携带 stepId）",
+          "event": "thinking",
+          "data": { "delta": "需要先追问用户的保障时段和具体应用...", "stepId": "planning" }
+        },
+        {
+          "_seq": 6,
+          "_phase": "THINKING（PlanningAgent）",
+          "event": "thinking",
+          "data": { "delta": "槽位信息收集完毕，开始设计方案。", "stepId": "planning" }
+        },
+        {
+          "_seq": 7,
+          "_phase": "STEP: planning > goal_parsing",
+          "event": "sub_step",
+          "data": {
+            "stepId": "planning",
+            "subStepId": "planning_goal_parsing",
+            "name": "goal_parsing",
+            "scriptPath": "scripts/slot_engine.py",
+            "callArgs": ["--input", "{\"user_query\": \"客厅视频卡顿，保障抖音直播\"}"],
+            "stdout": "{\"slots\": {\"location\": \"客厅\", \"symptom\": \"视频卡顿\", \"app\": \"抖音直播\"}, \"complete\": true}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:00:01Z",
+            "durationMs": 1240
+          }
+        },
+        {
+          "_seq": 8,
+          "_phase": "THINKING（PlanningAgent）",
+          "event": "thinking",
+          "data": { "delta": "槽位齐全，进入方案设计阶段。", "stepId": "planning" }
+        },
+        {
+          "_seq": 9,
+          "_phase": "STEP: planning > plan_design（Instructional Skill，无脚本）",
+          "event": "sub_step",
+          "data": {
+            "stepId": "planning",
+            "subStepId": "planning_plan_design",
+            "name": "plan_design",
+            "scriptPath": "",
+            "callArgs": [],
+            "stdout": "## 优化方案\n### A. WIFI 覆盖优化\n推荐 AP 点位调整至客厅中央...\n### B. 差异化承载\n视频业务 DSCP 标记 46...\n### C. CEI 体验保障链\nSLA 权重配置下发...",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:00:04Z",
+            "durationMs": 2810
+          }
+        },
+        {
+          "_seq": 10,
+          "_phase": "STEP: planning > plan_review",
+          "event": "sub_step",
+          "data": {
+            "stepId": "planning",
+            "subStepId": "planning_plan_review",
+            "name": "plan_review",
+            "scriptPath": "scripts/checker.py",
+            "callArgs": ["--plan", "## 优化方案\n### A..."],
+            "stdout": "{\"violations\": [], \"recommendations\": [\"建议同步检查路由器固件版本\"], \"score\": 92}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:00:06Z",
+            "durationMs": 1560
+          }
+        },
+        {
+          "_seq": 11,
+          "_phase": "STEP: planning END",
+          "event": "step_end",
+          "data": { "stepId": "planning" }
+        },
+        {
+          "_seq": 12,
+          "_phase": "STEP: provisioning-wifi START",
+          "event": "step_start",
+          "data": { "stepId": "provisioning-wifi", "title": "ProvisioningAgent (WIFI 仿真)" }
+        },
+        {
+          "_seq": 13,
+          "_phase": "THINKING（ProvisioningWifi）",
+          "event": "thinking",
+          "data": { "delta": "从方案段落提取 wifi_simulation 所需参数...", "stepId": "provisioning-wifi" }
+        },
+        {
+          "_seq": 14,
+          "_phase": "STEP: provisioning-wifi > wifi_simulation",
+          "event": "sub_step",
+          "data": {
+            "stepId": "provisioning-wifi",
+            "subStepId": "provisioning-wifi_wifi_simulation",
+            "name": "wifi_simulation",
+            "scriptPath": "scripts/simulate.py",
+            "callArgs": ["--floorplan", "standard_3room.jpg", "--ap-count", "1"],
+            "stdout": "{\"recommended_ap_position\": {\"x\": 3.5, \"y\": 2.0}, \"expected_rssi_improvement\": \"+12 dBm\", \"coverage_score\": 0.94}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:00:11Z",
+            "durationMs": 4120
+          }
+        },
+        {
+          "_seq": 15,
+          "_phase": "STEP: provisioning-wifi END",
+          "event": "step_end",
+          "data": { "stepId": "provisioning-wifi" }
+        },
+        {
+          "_seq": 16,
+          "_phase": "STEP: provisioning-delivery START",
+          "event": "step_start",
+          "data": { "stepId": "provisioning-delivery", "title": "ProvisioningAgent (差异化承载)" }
+        },
+        {
+          "_seq": 17,
+          "_phase": "STEP: provisioning-delivery > differentiated_delivery",
+          "event": "sub_step",
+          "data": {
+            "stepId": "provisioning-delivery",
+            "subStepId": "provisioning-delivery_differentiated_delivery",
+            "name": "differentiated_delivery",
+            "scriptPath": "scripts/render.py",
+            "callArgs": ["--service-type", "video", "--dscp", "46", "--bandwidth-mbps", "20"],
+            "stdout": "{\"applied_policy\": \"VIDEO_DSCP_46\", \"bandwidth_reserved\": \"20Mbps\", \"status\": \"success\"}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:00:13Z",
+            "durationMs": 1930
+          }
+        },
+        {
+          "_seq": 18,
+          "_phase": "STEP: provisioning-delivery END",
+          "event": "step_end",
+          "data": { "stepId": "provisioning-delivery" }
+        },
+        {
+          "_seq": 19,
+          "_phase": "THINKING（Orchestrator 汇总推理）",
+          "event": "thinking",
+          "data": { "delta": "三路执行已完成，整理汇总结果输出给用户。" }
+        },
+        {
+          "_seq": 20,
+          "_phase": "TEXT（Orchestrator 汇总，流式 delta）",
+          "event": "text",
+          "data": { "delta": "已完成全部优化配置，" }
+        },
+        {
+          "_seq": 21,
+          "_phase": "TEXT",
+          "event": "text",
+          "data": { "delta": "具体结果如下：\n\n- **WIFI 仿真**：建议将 AP 移至客厅中央（3.5m, 2.0m），预计信号提升 +12 dBm\n- **差异化承载**：视频业务已标记 DSCP 46，预留 20Mbps 带宽" }
+        },
+        {
+          "_seq": 22,
+          "_phase": "DONE",
+          "event": "done",
+          "data": { "messageId": "550e8400-e29b-41d4-a716-446655440001", "thinkingDurationSec": 4 }
+        }
+      ]
+    },
+
+    "scenario_2_insight_only": {
+      "_desc": "纯数据洞察请求：InsightAgent → render（在 step_end 之前）→ step_end → text + done",
+      "events": [
+        {
+          "_seq": 1,
+          "_phase": "THINKING（Orchestrator）",
+          "event": "thinking",
+          "data": { "delta": "用户要分析 CEI 低分 PON 口，路由到 InsightAgent。" }
+        },
+        {
+          "_seq": 2,
+          "_phase": "STEP: insight START",
+          "event": "step_start",
+          "data": { "stepId": "insight", "title": "InsightAgent" }
+        },
+        {
+          "_seq": 3,
+          "_phase": "THINKING（InsightAgent）",
+          "event": "thinking",
+          "data": { "delta": "制定洞察计划：先分布分析，再归因。", "stepId": "insight" }
+        },
+        {
+          "_seq": 4,
+          "_phase": "STEP: insight > insight_plan",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_plan",
+            "name": "insight_plan",
+            "scriptPath": "",
+            "callArgs": [],
+            "stdout": "{\"macro_plan\": [\"phase_1: CEI 分布分析\", \"phase_2: 低分 PON 口归因\"]}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:01Z",
+            "durationMs": 900
+          }
+        },
+        {
+          "_seq": 5,
+          "_phase": "STEP: insight > insight_decompose",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_decompose",
+            "name": "insight_decompose",
+            "scriptPath": "scripts/list_schema.py",
+            "callArgs": ["--phase", "phase_1"],
+            "stdout": "{\"phases\": [{\"id\": \"p1\", \"query\": \"SELECT pon_id, avg(cei) FROM metrics GROUP BY pon_id ORDER BY avg(cei)\"}, {\"id\": \"p2\", \"query\": \"SELECT factor, contribution FROM attribution WHERE pon_id IN (...)\"}]}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:03Z",
+            "durationMs": 1100
+          }
+        },
+        {
+          "_seq": 6,
+          "_phase": "THINKING（InsightAgent）",
+          "event": "thinking",
+          "data": { "delta": "分解完毕，执行第一个查询 phase。", "stepId": "insight" }
+        },
+        {
+          "_seq": 7,
+          "_phase": "STEP: insight > insight_query（第 1 次）",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_query_1",
+            "name": "insight_query",
+            "scriptPath": "scripts/run_insight.py",
+            "callArgs": ["--insight", "{\"query\": \"SELECT pon_id, avg(cei) FROM metrics GROUP BY pon_id\", \"insight_type\": \"distribution\"}"],
+            "stdout": "{\"insight_type\": \"distribution\", \"description\": \"12 个 PON 口中 4 个 CEI 低于 0.6 阈值\", \"significance\": 0.87, \"chart_configs\": {\"title\": {\"text\": \"PON 口 CEI 分布\"}, \"xAxis\": {\"type\": \"category\", \"data\": [\"PON-01\",\"PON-03\",\"PON-07\",\"PON-11\"]}, \"yAxis\": {\"type\": \"value\", \"name\": \"CEI 评分\"}, \"series\": [{\"type\": \"bar\", \"data\": [0.82, 0.41, 0.38, 0.43]}]}}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:06Z",
+            "durationMs": 2200
+          }
+        },
+        {
+          "_seq": 8,
+          "_phase": "STEP: insight > insight_reflect",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_reflect",
+            "name": "insight_reflect",
+            "scriptPath": "",
+            "callArgs": [],
+            "stdout": "{\"decision\": \"B\", \"reason\": \"分布已明确，进入归因阶段\"}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:07Z",
+            "durationMs": 500
+          }
+        },
+        {
+          "_seq": 9,
+          "_phase": "THINKING（InsightAgent）",
+          "event": "thinking",
+          "data": { "delta": "进入归因查询 phase。", "stepId": "insight" }
+        },
+        {
+          "_seq": 10,
+          "_phase": "STEP: insight > insight_query（第 2 次）",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_query_2",
+            "name": "insight_query",
+            "scriptPath": "scripts/run_insight.py",
+            "callArgs": ["--insight", "{\"query\": \"SELECT factor, contribution FROM attribution WHERE pon_id IN ('PON-03','PON-07','PON-11')\", \"insight_type\": \"attribution\"}"],
+            "stdout": "{\"insight_type\": \"attribution\", \"description\": \"上行拥塞贡献 58%，OLT 老化贡献 27%\", \"significance\": 0.91, \"chart_configs\": {\"title\": {\"text\": \"低分 PON 口根因分布\"}, \"series\": [{\"type\": \"pie\", \"data\": [{\"name\": \"上行拥塞\", \"value\": 58}, {\"name\": \"OLT 老化\", \"value\": 27}, {\"name\": \"其他\", \"value\": 15}]}]}}",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:10Z",
+            "durationMs": 2340
+          }
+        },
+        {
+          "_seq": 11,
+          "_phase": "STEP: insight > insight_report",
+          "event": "sub_step",
+          "data": {
+            "stepId": "insight",
+            "subStepId": "insight_insight_report",
+            "name": "insight_report",
+            "scriptPath": "scripts/render_report.py",
+            "callArgs": ["--phases", "[{\"id\":\"p1\",...},{\"id\":\"p2\",...}]"],
+            "stdout": "## CEI 低分 PON 口洞察报告\n\n**结论**：共 4 个 PON 口 CEI 持续低于 0.6，主要根因为上行拥塞（58%）和 OLT 老化（27%）。\n\n**建议**：优先对 PON-07 / PON-03 扩容或分流，PON-11 调整 DBA 调度策略。",
+            "stderr": "",
+            "completedAt": "2026-04-11T10:01:12Z",
+            "durationMs": 1780
+          }
+        },
+        {
+          "_seq": 12,
+          "_phase": "RENDER（在 step_end 之前触发，insight step 结束时由 ToolCallCompleted 驱动）",
+          "event": "render",
+          "data": {
+            "renderType": "insight",
+            "renderData": {
+              "charts": [
+                {
+                  "chartId": "insight_insight_query_1_1",
+                  "title": "PON 口 CEI 分布",
+                  "conclusion": "12 个 PON 口中 4 个 CEI 低于 0.6 阈值；显著性 0.87",
+                  "echartsOption": {
+                    "title": { "text": "PON 口 CEI 分布" },
+                    "xAxis": { "type": "category", "data": ["PON-01","PON-03","PON-07","PON-11"] },
+                    "yAxis": { "type": "value", "name": "CEI 评分" },
+                    "series": [{ "type": "bar", "data": [0.82, 0.41, 0.38, 0.43] }]
+                  }
+                },
+                {
+                  "chartId": "insight_insight_query_2_2",
+                  "title": "低分 PON 口根因分布",
+                  "conclusion": "上行拥塞贡献 58%，OLT 老化贡献 27%；显著性 0.91",
+                  "echartsOption": {
+                    "title": { "text": "低分 PON 口根因分布" },
+                    "series": [{ "type": "pie", "data": [{"name":"上行拥塞","value":58},{"name":"OLT 老化","value":27},{"name":"其他","value":15}] }]
+                  }
+                }
+              ],
+              "markdownReport": "## CEI 低分 PON 口洞察报告\n\n**结论**：共 4 个 PON 口 CEI 持续低于 0.6，主要根因为上行拥塞（58%）和 OLT 老化（27%）。\n\n**建议**：优先对 PON-07 / PON-03 扩容或分流，PON-11 调整 DBA 调度策略。"
+            }
+          }
+        },
+        {
+          "_seq": 13,
+          "_phase": "STEP: insight END",
+          "event": "step_end",
+          "data": { "stepId": "insight" }
+        },
+        {
+          "_seq": 14,
+          "_phase": "TEXT（Orchestrator 汇总）",
+          "event": "text",
+          "data": { "delta": "洞察分析已完成，右侧面板展示了 CEI 分布图和根因分析。如需生成优化方案，请告知。" }
+        },
+        {
+          "_seq": 15,
+          "_phase": "DONE",
+          "event": "done",
+          "data": { "messageId": "550e8400-e29b-41d4-a716-446655440002", "thinkingDurationSec": 2 }
+        }
+      ]
+    },
+
+    "scenario_3_text_only": {
+      "_desc": "简单问答（无 thinking / step，仅 text + done）",
+      "events": [
+        { "_seq": 1, "event": "text", "data": { "delta": "家宽网络" } },
+        { "_seq": 2, "event": "text", "data": { "delta": "调优主要从三个维度入手：" } },
+        { "_seq": 3, "event": "text", "data": { "delta": "WIFI 覆盖、差异化承载、以及 CEI 体验保障链。" } },
+        { "_seq": 4, "event": "done", "data": { "messageId": "550e8400-e29b-41d4-a716-446655440003", "thinkingDurationSec": 0 } }
+      ]
+    },
+
+    "scenario_4_error": {
+      "_desc": "Agent 执行出错（发送 error 事件后流结束，消息不持久化）",
+      "events": [
+        { "_seq": 1, "event": "thinking", "data": { "delta": "正在处理请求..." } },
+        { "_seq": 2, "event": "step_start", "data": { "stepId": "provisioning-wifi", "title": "ProvisioningAgent (WIFI 仿真)" } },
+        {
+          "_seq": 3,
+          "event": "sub_step",
+          "data": {
+            "stepId": "provisioning-wifi",
+            "subStepId": "provisioning-wifi_wifi_simulation",
+            "name": "wifi_simulation",
+            "scriptPath": "scripts/simulate.py",
+            "callArgs": ["--floorplan", "standard_3room.jpg"],
+            "stdout": "",
+            "stderr": "ModuleNotFoundError: No module named 'cv2'",
+            "completedAt": "2026-04-11T10:02:01Z",
+            "durationMs": 320
+          }
+        },
+        { "_seq": 4, "event": "error", "data": { "message": "Agent 执行失败：ModuleNotFoundError: No module named 'cv2'" } }
+      ]
+    }
+  },
+
+  "event_type_reference": {
+    "thinking": {
+      "payload": {
+        "delta": "string（推理内容增量，非空）",
+        "stepId": "string?（存在时表示属于某 SubAgent，值为 member_id；不存在时属于 Orchestrator）"
+      },
+      "frontend_action": "有 stepId → 追加到对应 StepCard 的 thinking 块；无 stepId → 追加到顶层 ThinkingBlock"
+    },
+    "text": {
+      "payload": { "delta": "string（文本增量，非空）" },
+      "frontend_action": "追加到最后一个 text block，若无则新建；仅 Orchestrator（Team leader）产生"
+    },
+    "step_start": {
+      "payload": { "stepId": "string", "title": "string" },
+      "frontend_action": "关闭前一个 thinking block，push { type:'step', stepId } 到 blocks[]，新建 StepCard（默认展开）"
+    },
+    "sub_step": {
+      "payload": {
+        "stepId": "string（所属 SubAgent）",
+        "subStepId": "string（唯一 ID，格式 {stepId}_{skillName}）",
+        "name": "string（Skill 名称）",
+        "scriptPath": "string?（被调用脚本路径，Instructional Skill 为空）",
+        "callArgs": "string[]?（CLI 参数列表）",
+        "stdout": "string?（脚本 stdout，截断至 500 字符）",
+        "stderr": "string?（脚本 stderr，截断至 500 字符）",
+        "completedAt": "string（ISO 8601 UTC）",
+        "durationMs": "number（执行耗时毫秒）"
+      },
+      "frontend_action": "关闭当前 thinking block（打 endedAt），追加 { type:'sub_step', data } 到 StepCard.items[]"
+    },
+    "step_end": {
+      "payload": { "stepId": "string" },
+      "frontend_action": "关闭末尾 thinking block，标记 StepCard completed（loading → 绿色对勾）"
+    },
+    "render": {
+      "payload": {
+        "renderType": "'insight' | 'image'",
+        "renderData": "InsightRenderData | ImageRenderData（见 sse-interface-spec.md）"
+      },
+      "frontend_action": "追加到 message.renderBlocks[]，同步更新右侧 RightPanel；在 insight step_end 之前触发"
+    },
+    "done": {
+      "payload": { "messageId": "string（UUID）", "thinkingDurationSec": "number" },
+      "frontend_action": "streaming=false，关闭末尾 thinking block，更新 thinkingDurationSec"
+    },
+    "error": {
+      "payload": { "message": "string" },
+      "frontend_action": "显示错误提示，streaming=false；消息不持久化到数据库"
+    }
+  }
+}
