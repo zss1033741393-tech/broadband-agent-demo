@@ -38,6 +38,11 @@ export async function post<T>(url: string, body?: unknown): Promise<T> {
   return res.data.data;
 }
 
+export async function patch<T>(url: string, body?: unknown): Promise<T> {
+  const res = await request.patch<ApiResponse<T>>(url, body);
+  return res.data.data;
+}
+
 export async function del<T>(url: string): Promise<T> {
   const res = await request.delete<ApiResponse<T>>(url);
   return res.data.data;
