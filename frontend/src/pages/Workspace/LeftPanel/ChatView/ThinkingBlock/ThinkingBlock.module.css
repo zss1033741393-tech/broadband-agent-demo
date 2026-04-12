@@ -41,12 +41,61 @@
   transform: rotate(180deg);
 }
 
+/* ── 收起时的预览区域 ── */
+.preview {
+  position: relative;
+  height: 58px;
+  overflow: hidden;
+  border-top: 1px solid #1f2937;
+}
+
+/* 顶部渐变遮罩，营造内容向上消失的感觉 */
+.previewFade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, #11161d, transparent);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.previewText {
+  position: absolute;
+  bottom: 10px;
+  left: 36px;
+  right: 16px;
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow: hidden;
+}
+
+/* ── 展开时的完整内容区域 ── */
 .body {
-  padding: 0 16px 12px 36px;
+  padding: 10px 16px 14px 36px;
   font-size: 12px;
   color: #9ca3af;
   font-style: italic;
   line-height: 1.6;
   white-space: pre-wrap;
   border-top: 1px solid #1f2937;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.body::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 2px;
 }
