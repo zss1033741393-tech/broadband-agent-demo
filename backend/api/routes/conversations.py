@@ -29,6 +29,17 @@ async def create_conversation(body: CreateConversationRequest):
     return ok(conv)
 
 
+@router.patch("/{conv_id}", response_model=ApiResponse)
+async def update_conversation(conv_id: str, body: dict):
+    title = (body.get("title") or "").strip()
+    if not title:
+        return err(1003, "标题不能为空")
+    updated = await repo.update_conversation_title(conv_id, title)
+    if not updated:
+        return err(1002, "会话不存在")
+    return ok(None)
+
+
 @router.delete("/{conv_id}", response_model=ApiResponse)
 async def delete_conversation(conv_id: str):
     deleted = await repo.delete_conversation(conv_id)

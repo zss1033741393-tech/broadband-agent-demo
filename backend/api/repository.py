@@ -129,6 +129,17 @@ async def delete_conversation(conv_id: str) -> bool:
     return cur.rowcount > 0
 
 
+async def update_conversation_title(conv_id: str, title: str) -> bool:
+    """更新会话标题。"""
+    async with aiosqlite.connect(_DB_PATH) as conn:
+        cur = await conn.execute(
+            "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
+            (title[:100], _now_iso(), conv_id),
+        )
+        await conn.commit()
+    return cur.rowcount > 0
+
+
 async def _update_conversation_meta(conn: aiosqlite.Connection, conv_id: str, preview: str) -> None:
     now = _now_iso()
     await conn.execute(
