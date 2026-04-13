@@ -3,27 +3,18 @@ import EmptyState from './EmptyState';
 import ImageDisplay from './ImageDisplay';
 import InsightDisplay from './InsightDisplay';
 import styles from './RightPanel.module.css';
-import type { RenderBlock } from '@/types/render';
+import type { InsightRenderData } from '@/types/render';
 
-type Segment =
-  | { kind: 'images'; blocks: RenderBlock[] }
-  | { kind: 'insight'; block: RenderBlock };
-
-function groupRenders(renders: RenderBlock[]): Segment[] {
-  const segments: Segment[] = [];
-  for (const block of renders) {
-    if (block.renderType === 'image') {
-      const last = segments[segments.length - 1];
-      if (last?.kind === 'images') {
-        last.blocks.push(block);
-      } else {
-        segments.push({ kind: 'images', blocks: [block] });
-      }
-    } else {
-      segments.push({ kind: 'insight', block });
-    }
-  }
-  return segments;
+/** 根据图表数据密度决定占几列：pie 图或数据点少 → 1 列，数据密集 → 2 列 */
+function getInsightSpan(data: InsightRenderData): 1 | 2 {
+  const chart = data.charts[0];
+  if (!chart) return 1;
+  const option = chart.echartsOption;
+  const series = (option.series ?? []) as { type?: string }[];
+  if (series.some((s) => s.type === 'pie')) return 1;
+  const xData = (option.xAxis as { data?: unknown[] } | undefined)?.data;
+  if (Array.isArray(xData) && xData.length > 6) return 2;
+  return 1;
 }
 
 function RightPanel() {
@@ -37,21 +28,29 @@ function RightPanel() {
     );
   }
 
-  const segments = groupRenders(currentRenders);
-
   return (
     <main className={styles.rightPanel}>
-      {segments.map((seg, i) =>
-        seg.kind === 'images' ? (
-          <div key={i} className={styles.imageGrid}>
-            {seg.blocks.map((block, j) => (
-              <ImageDisplay key={j} data={block.renderData} />
-            ))}
-          </div>
-        ) : (
-          <InsightDisplay key={i} data={seg.block.renderData} />
-        )
-      )}
+      <div className={styles.renderGrid}>
+        {currentRenders.map((block, i) => {
+          if (block.renderType === 'image') {
+            return (
+              <div key={i} className={styles.gridCell}>
+                <ImageDisplay data={block.renderData} />
+              </div>
+            );
+          }
+          const span = getInsightSpan(block.renderData);
+          return (
+            <div
+              key={i}
+              className={styles.gridCell}
+              style={span === 2 ? { gridColumn: '1 / -1' } : undefined}
+            >
+              <InsightDisplay data={block.renderData} />
+            </div>
+          );
+        })}
+      </div>
     </main>
   );
 }
