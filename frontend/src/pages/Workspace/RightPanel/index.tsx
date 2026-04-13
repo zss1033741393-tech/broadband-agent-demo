@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useWorkspaceStore } from '@/store/workspaceStore';
@@ -21,6 +22,11 @@ function getInsightSpan(data: InsightRenderData): 1 | 2 {
 
 function RightPanel() {
   const currentRenders = useWorkspaceStore((s) => s.currentRenders);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [currentRenders.length]);
 
   if (currentRenders.length === 0) {
     return (
@@ -64,6 +70,7 @@ function RightPanel() {
           );
         })}
       </div>
+      <div ref={bottomRef} />
     </main>
   );
 }
