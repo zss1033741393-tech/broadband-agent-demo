@@ -1,0 +1,43 @@
+.section {
+  padding: 10px 16px 8px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-weight: 500;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.panel {
+  flex: 1;
+  min-height: 0;
+  height: 330px;
+  background: #0d1117;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.placeholderIcon {
+  opacity: 0.5;
+}
+
+.placeholderText {
+  font-size: 12px;
+  color: #374151;
+}

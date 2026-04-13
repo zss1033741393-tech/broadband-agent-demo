@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Workspace from './pages/Workspace';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   useEffect(() => {
-    document.title = '网络 Agent 操作台';
+    document.title = '光接入智能体';
   }, []);
 
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Workspace />} />
-        <Route path="*" element={<Workspace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/workspace" element={<Workspace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </HashRouter>
   );

@@ -1,0 +1,101 @@
+.topBar {
+  width: 100%;
+  height: 48px;
+  flex-shrink: 0;
+  background: #0a0f14;
+  border-bottom: 1px solid #1f2937;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 100;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+/* 左侧 LOGO */
+.logoArea {
+  display: flex;
+  align-items: center;
+  width: 140px;
+}
+
+.logoPlaceholder {
+  width: 88px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.logoText {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+/* 中间标题：绝对居中 */
+.titleArea {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.title {
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+/* 右侧图标组 */
+.rightArea {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconBtn {
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+}
+
+.userGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.userIcon {
+  font-size: 15px;
+}
+
+.userName {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.iconBtn:hover .userName {
+  color: #e2e8f0;
+}

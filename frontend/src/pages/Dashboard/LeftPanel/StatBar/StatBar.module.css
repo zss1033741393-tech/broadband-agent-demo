@@ -1,0 +1,55 @@
+.statBar {
+  display: flex;
+  align-items: stretch;
+  padding: 12px 8px;
+  gap: 0;
+  border-bottom: 1px solid #1f2937;
+}
+
+.statItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+  border-right: 1px solid #1f2937;
+}
+
+.statItem:last-child {
+  border-right: none;
+}
+
+.iconRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.label {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.value {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.value.white {
+  color: #e2e8f0;
+}
+
+.value.green {
+  color: #22c55e;
+}
+
+.unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+}

@@ -6,7 +6,11 @@ import MessageList from './MessageList';
 import InputBubble from './InputBubble';
 import styles from './ChatView.module.css';
 
-function ChatView() {
+interface Props {
+  prefillMessage?: string;
+}
+
+function ChatView({ prefillMessage }: Props) {
   const backToList = useWorkspaceStore((s) => s.backToList);
   const activeId = useWorkspaceStore((s) => s.activeConversationId);
   const messagesByConvId = useWorkspaceStore((s) => s.messagesByConvId);
@@ -17,7 +21,7 @@ function ChatView() {
   const abortStream = useWorkspaceStore((s) => s.abortStream);
 
   const conversations = useConversationStore((s) => s.list);
-  const [editDraft, setEditDraft] = useState('');
+  const [editDraft, setEditDraft] = useState(prefillMessage ?? '');
 
   const messages = activeId ? (messagesByConvId[activeId] ?? []) : [];
   const messagesLoading = activeId ? messagesLoadingConvIds.has(activeId) : false;
