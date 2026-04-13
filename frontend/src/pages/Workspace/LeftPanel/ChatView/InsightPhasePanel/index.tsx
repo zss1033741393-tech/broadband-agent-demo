@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tooltip } from 'antd';
 import { CheckCircleFilled, SyncOutlined, RightOutlined } from '@ant-design/icons';
 
@@ -43,8 +43,12 @@ function PhaseRow({ phase }: { phase: InsightPhase }) {
   const isDiscarded = phase.reflection?.choice === 'D';
   const isDone = phase.status === 'done' || phase.status === 'reflected';
   const hasSteps = phase.steps.length > 0;
-  // 完成后默认折叠，执行中默认展开
   const [expanded, setExpanded] = useState(!isDone);
+
+  // status 变为完成时自动收起
+  useEffect(() => {
+    if (isDone) setExpanded(false);
+  }, [isDone]);
 
   const toggleable = hasSteps && isDone;
 
