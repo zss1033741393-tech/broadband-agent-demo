@@ -128,17 +128,34 @@
 
 /* Steps */
 .stepList {
-  padding: 2px 0 4px 36px;
+  padding: 2px 0 6px 36px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+.stepBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .stepRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 0;
+  padding: 2px 0;
+}
+
+.stepSummary {
+  margin-left: 16px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #9ca3af;
+  background: rgba(59, 130, 246, 0.06);
+  border-left: 2px solid #3b82f6;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.55;
 }
 
 .stepDot {

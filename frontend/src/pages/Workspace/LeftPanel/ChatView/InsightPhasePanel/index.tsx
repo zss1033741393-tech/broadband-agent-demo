@@ -1,5 +1,6 @@
 import { Tooltip } from 'antd';
 import { CheckCircleFilled, SyncOutlined } from '@ant-design/icons';
+
 import type { InsightState, InsightPhase, InsightStep, PhaseStatus } from '@/types/insight';
 import styles from './InsightPhasePanel.module.css';
 
@@ -15,30 +16,26 @@ function PhaseIcon({ status }: { status: PhaseStatus }) {
 }
 
 function StepRow({ step }: { step: InsightStep }) {
-  const label = step.insightTypes.join(' · ') || `Step ${step.stepId}`;
-  const node = (
-    <div className={`${styles.stepRow} ${styles[`step_${step.status}`]}`}>
-      {step.status === 'done'
-        ? <CheckCircleFilled className={styles.stepIconDone} />
-        : step.status === 'running'
-          ? <span className={styles.spinRingSmall} />
-          : <span className={styles.stepDot} />
-      }
-      <span className={styles.stepLabel}>{label}</span>
-      {step.significance !== undefined && step.status === 'done' && (
-        <span className={styles.stepSig}>sig {step.significance.toFixed(2)}</span>
+  const label = step.rationale || step.insightTypes.join(' · ') || `Step ${step.stepId}`;
+  return (
+    <div className={`${styles.stepBlock} ${styles[`step_${step.status}`]}`}>
+      <div className={styles.stepRow}>
+        {step.status === 'done'
+          ? <CheckCircleFilled className={styles.stepIconDone} />
+          : step.status === 'running'
+            ? <span className={styles.spinRingSmall} />
+            : <span className={styles.stepDot} />
+        }
+        <span className={styles.stepLabel}>{label}</span>
+        {step.significance !== undefined && step.status === 'done' && (
+          <span className={styles.stepSig}>显著性 {step.significance.toFixed(2)}</span>
+        )}
+      </div>
+      {step.summary && step.status === 'done' && (
+        <div className={styles.stepSummary}>{step.summary}</div>
       )}
     </div>
   );
-
-  if (step.summary && step.status === 'done') {
-    return (
-      <Tooltip title={step.summary} placement="right" overlayStyle={{ maxWidth: 320 }}>
-        {node}
-      </Tooltip>
-    );
-  }
-  return node;
 }
 
 function PhaseRow({ phase }: { phase: InsightPhase }) {
