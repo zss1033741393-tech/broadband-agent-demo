@@ -7,6 +7,7 @@
 }
 
 .contentBlock {
+  position: relative;
   padding: 14px 16px;
   font-size: 14px;
   color: #e5e7eb;
@@ -57,6 +58,32 @@
 
 .contentBlock strong {
   color: #fff;
+}
+
+.fadeTop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: linear-gradient(to bottom, #161b22, transparent);
+  pointer-events: none;
+  border-radius: 12px 12px 0 0;
+}
+
+.toggleBtn {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #3b82f6;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.toggleBtn:hover {
+  text-decoration: underline;
 }
 
 .cursor {

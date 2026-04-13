@@ -5,6 +5,7 @@ import { useConversationStore } from '@/store/conversationStore';
 import { parseSseStream } from '@/utils/sseParser';
 import type { Message, Step, SubStep, MessageBlock } from '@/types/message';
 import type { RenderBlock } from '@/types/render';
+import { InsightEventParser, applyInsightEvent } from '@/utils/insightEventParser';
 import type {
   DoneEvent,
   ErrorEvent as SseErrorEvent,
@@ -34,6 +35,9 @@ interface WorkspaceState {
 
   // 内部 abort controllers（per conversation）
   _abortCtrls: Record<string, AbortController>;
+
+  // insight 流式 parser（per conversation）
+  _insightParsers: Record<string, InsightEventParser>;
 
   // actions
   setLeftView: (view: LeftView) => void;
@@ -75,6 +79,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   streamingConvIds: new Set(),
   currentRenders: [],
   _abortCtrls: {},
+  _insightParsers: {},
 
   setLeftView: (view) => set({ leftView: view }),
   setActiveConversation: (id) => set({ activeConversationId: id }),
@@ -240,35 +245,59 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             }
             case 'text': {
               const d = e.data as TextEvent;
+              // 确保该会话有 parser 实例
+              if (!get()._insightParsers[convId]) {
+                set((s) => ({
+                  _insightParsers: { ...s._insightParsers, [convId]: new InsightEventParser() },
+                }));
+              }
+              const parser = get()._insightParsers[convId];
+              const { cleanText, events } = parser.feed(d.delta);
+
               updateAssistant((m) => {
-                const steps = m.steps ?? [];
-                const lastStep = steps[steps.length - 1];
-                // 有未结束的 step，text 写入 step 内部
-                if (lastStep && !lastStep.completed) {
-                  const newSteps = steps.map((s) => {
-                    if (s.stepId !== lastStep.stepId) return s;
-                    const items = s.items ?? [];
-                    const lastItem = items[items.length - 1];
-                    const newItems =
-                      lastItem?.type === 'text'
-                        ? [...items.slice(0, -1), { type: 'text' as const, content: lastItem.content + d.delta }]
-                        : [...items, { type: 'text' as const, content: d.delta }];
-                    return { ...s, items: newItems };
-                  });
-                  return { ...m, steps: newSteps, content: m.content + d.delta };
+                let next = m;
+
+                // 应用 insight 事件到 insightState
+                if (events.length > 0) {
+                  let insightState = m.insightState;
+                  for (const evt of events) {
+                    insightState = applyInsightEvent(insightState, evt);
+                  }
+                  next = { ...next, insightState };
                 }
-                // 无活跃 step，追加到顶层 blocks
-                const blocks = m.blocks ?? [];
-                const last = blocks[blocks.length - 1];
-                const closedBlocks = last?.type === 'thinking' && !last.endedAt
-                  ? [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
-                  : blocks;
-                const prevLast = closedBlocks[closedBlocks.length - 1];
-                const newBlocks: MessageBlock[] =
-                  prevLast?.type === 'text'
-                    ? [...closedBlocks.slice(0, -1), { type: 'text', content: prevLast.content + d.delta }]
-                    : [...closedBlocks, { type: 'text', content: d.delta }];
-                return { ...m, blocks: newBlocks, content: m.content + d.delta };
+
+                // cleanText 写入 blocks / step.items（原逻辑，用 cleanText 替代 delta）
+                if (cleanText) {
+                  const steps = next.steps ?? [];
+                  const lastStep = steps[steps.length - 1];
+                  if (lastStep && !lastStep.completed) {
+                    const newSteps = steps.map((s) => {
+                      if (s.stepId !== lastStep.stepId) return s;
+                      const items = s.items ?? [];
+                      const lastItem = items[items.length - 1];
+                      const newItems =
+                        lastItem?.type === 'text'
+                          ? [...items.slice(0, -1), { type: 'text' as const, content: lastItem.content + cleanText }]
+                          : [...items, { type: 'text' as const, content: cleanText }];
+                      return { ...s, items: newItems };
+                    });
+                    next = { ...next, steps: newSteps, content: next.content + cleanText };
+                  } else {
+                    const blocks = next.blocks ?? [];
+                    const last = blocks[blocks.length - 1];
+                    const closedBlocks = last?.type === 'thinking' && !last.endedAt
+                      ? [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
+                      : blocks;
+                    const prevLast = closedBlocks[closedBlocks.length - 1];
+                    const newBlocks: MessageBlock[] =
+                      prevLast?.type === 'text'
+                        ? [...closedBlocks.slice(0, -1), { type: 'text', content: prevLast.content + cleanText }]
+                        : [...closedBlocks, { type: 'text', content: cleanText }];
+                    next = { ...next, blocks: newBlocks, content: next.content + cleanText };
+                  }
+                }
+
+                return next;
               });
               break;
             }
@@ -397,7 +426,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         nextStreaming.delete(convId);
         const nextCtrls = { ...s._abortCtrls };
         delete nextCtrls[convId];
-        return { streamingConvIds: nextStreaming, _abortCtrls: nextCtrls };
+        const nextParsers = { ...s._insightParsers };
+        delete nextParsers[convId];
+        return { streamingConvIds: nextStreaming, _abortCtrls: nextCtrls, _insightParsers: nextParsers };
       });
     }
   },

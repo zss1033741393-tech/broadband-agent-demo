@@ -1,4 +1,5 @@
 import type { RenderBlock } from './render';
+import type { InsightState } from './insight';
 
 export interface SubStep {
   subStepId: string;
@@ -59,6 +60,8 @@ export interface Message {
   streaming?: boolean;
   /** 错误标记：流式过程中报错 */
   error?: string;
+  /** InsightAgent 阶段进度（从 text 流事件中解析） */
+  insightState?: InsightState;
   createdAt: string;
 }
 

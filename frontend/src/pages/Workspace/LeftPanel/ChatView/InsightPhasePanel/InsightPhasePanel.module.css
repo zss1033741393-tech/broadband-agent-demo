@@ -1,0 +1,162 @@
+.panel {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid #1f2937;
+  background: #161b22;
+}
+
+.panelTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.panelProgress {
+  font-size: 12px;
+  color: #6b7280;
+  background: #1f2937;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.goal {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #6b7280;
+  border-bottom: 1px solid #1f2937;
+  line-height: 1.5;
+}
+
+.phaseList {
+  padding: 6px 0;
+}
+
+/* Phase */
+.phaseBlock {
+  padding: 4px 0;
+}
+
+.phaseHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+  cursor: default;
+}
+
+.phaseName {
+  font-size: 13px;
+  color: #9ca3af;
+  flex: 1;
+}
+
+.phaseNameActive {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.reflectBadge {
+  font-size: 10px;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+/* Phase status icons */
+.iconDone {
+  color: #22c55e;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.iconRunning {
+  color: #3b82f6;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.iconReflected {
+  color: #f59e0b;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.iconPending {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Steps */
+.stepList {
+  padding: 2px 0 4px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+
+.stepDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #374151;
+  flex-shrink: 0;
+}
+
+.stepIconDone {
+  color: #22c55e;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.stepIconRunning {
+  color: #3b82f6;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.stepLabel {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.step_done .stepLabel {
+  color: #9ca3af;
+}
+
+.step_running .stepLabel {
+  color: #93c5fd;
+}
+
+.stepSig {
+  font-size: 10px;
+  color: #4b5563;
+  margin-left: auto;
+  font-family: monospace;
+}

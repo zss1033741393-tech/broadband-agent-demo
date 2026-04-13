@@ -90,16 +90,23 @@ function MessageList({ messages, loading, isStreaming, onEditMessage }: Props) {
                   return step ? <StepCard key={step.stepId} step={step} streaming={msg.streaming} /> : null;
                 }
                 if (block.type === 'text') {
+                  // 最后一个 text block 才挂 insightState
+                  const isLastText = blocks.slice(i + 1).every((b) => b.type !== 'text');
                   return (
                     <ConclusionCard
                       key={`text-${i}`}
                       content={block.content}
                       streaming={msg.streaming}
+                      insightState={isLastText ? msg.insightState : undefined}
                     />
                   );
                 }
                 return null;
               })}
+              {/* 无 text block 但有 insightState 时单独渲染进度面板 */}
+              {msg.insightState && !blocks.some((b) => b.type === 'text') && (
+                <ConclusionCard key="insight-only" content="" insightState={msg.insightState} />
+              )}
               {msg.error && <ErrorCard message={msg.error} />}
             </div>
           );
