@@ -15,13 +15,21 @@ function computeWidth(block: RenderBlock): number {
   if (block.renderType === 'image') return 0.5;
   const chart = block.renderData.charts[0];
   if (!chart) return 0.5;
-  const series = (chart.echartsOption.series ?? []) as { type?: string }[];
+  const series = (chart.echartsOption.series ?? []) as { type?: string; data?: unknown[] }[];
   if (series.some((s) => s.type === 'pie')) return 0.35;
+
   const xData = (chart.echartsOption.xAxis as { data?: unknown[] } | undefined)?.data;
-  const count = Array.isArray(xData) ? xData.length : 0;
-  if (count === 0) return 0.5;
-  // clamp(40%, count * 1.5%, 75%)
-  return Math.min(0.75, Math.max(0.40, count * 0.015));
+  const xCount = Array.isArray(xData) ? xData.length : 0;
+
+  // 非 pie 的 series 数量（分组柱状图每个 x 有多根柱子）
+  const seriesCount = series.filter((s) => s.type !== 'pie').length || 1;
+
+  // 有效密度 = x 轴数 × series 数
+  const effectiveCount = xCount * seriesCount;
+  if (effectiveCount === 0) return 0.5;
+
+  // clamp(40%, effectiveCount * 1.5%, 75%)
+  return Math.min(0.75, Math.max(0.40, effectiveCount * 0.015));
 }
 
 function getReport(block: RenderBlock): string | undefined {
