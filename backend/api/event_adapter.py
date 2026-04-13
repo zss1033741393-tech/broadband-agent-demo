@@ -11,15 +11,22 @@ M4 补充：render
 
 from __future__ import annotations
 
+import shutil
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 
 from loguru import logger
 
 from api.sse import format_sse
+
+
+# 图片持久化目录 — 与 api/routes/images.py 的 _IMAGES_DIR 指向同一处
+# 事件适配层拷贝 skill 产物到这里，images 路由按 imageId 直接 FileResponse
+_IMAGES_DIR = Path(__file__).resolve().parents[1] / "data" / "images"
 
 
 # ─── 聚合对象 ─────────────────────────────────────────────────────────────────
@@ -94,12 +101,35 @@ async def adapt(
     conv_id: str,
     raw_stream: AsyncGenerator[Any, None],
 ) -> AsyncGenerator[tuple[str, MessageAggregate], None]:
-    """消费 agno 原始事件流，yield (SSE字符串, 当前聚合状态) 元组。"""
+    """消费 agno 原始事件流，yield (SSE字符串, 当前聚合状态) 元组。
 
+    外层壳：负责创建 MessageAggregate 并注入 msg_id 日志上下文；
+    主循环委派给 `_adapt_body`，便于用 `with contextualize` 正确包裹。
+    """
     agg = MessageAggregate(
         message_id=str(uuid.uuid4()),
         conversation_id=conv_id,
     )
+    api_log = logger.bind(channel="api")
+    with logger.contextualize(msg_id=agg.message_id):
+        api_log.info(f"adapt() 启动 msg_id={agg.message_id}")
+        try:
+            async for item in _adapt_body(conv_id, raw_stream, agg):
+                yield item
+        finally:
+            api_log.info(
+                f"adapt() 结束 status={agg.status} "
+                f"content_len={len(agg.content)} thinking_len={len(agg.thinking_content)} "
+                f"steps={len(agg.steps)} renders={len(agg.render_blocks)}"
+            )
+
+
+async def _adapt_body(
+    conv_id: str,
+    raw_stream: AsyncGenerator[Any, None],
+    agg: MessageAggregate,
+) -> AsyncGenerator[tuple[str, MessageAggregate], None]:
+    """adapt() 的原始主循环。所有 yield 的 SSE 事件由 format_sse 写 sse.log。"""
 
     thinking_start: Optional[float] = None
     thinking_end: Optional[float] = None
@@ -223,6 +253,14 @@ async def adapt(
                     _accumulate_insight(insight_acc, skill_name, result_raw, sub_step_id)
 
                 yield format_sse("sub_step", {"stepId": step_id, **sub}), agg
+
+                # wifi_simulation 单独通道：解析 image_paths，拷贝到 data/images/
+                # 每张图发一个独立的 renderType="image" 事件（按 docs/sse-interface-spec.md:216）
+                if skill_name == "wifi_simulation":
+                    for rb in _emit_wifi_image_renders(agg.message_id, result_raw):
+                        agg.render_blocks.append(rb)
+                        yield format_sse("render", rb), agg
+
                 continue
 
             # ── step_end ──────────────────────────────────────────────────
@@ -396,3 +434,68 @@ def _build_insight_render(acc: InsightAccumulator) -> dict | None:
         "charts": acc.charts,
         "markdownReport": acc.markdown_report,
     }
+
+
+# ─── wifi_simulation 图片持久化 ───────────────────────────────────────────────
+
+def _emit_wifi_image_renders(msg_id: str, result_raw: Any) -> list[dict]:
+    """从 wifi_simulation 的 stdout 解析 image_paths，拷贝到 data/images/ 并
+    返回 render_blocks 列表（每张图一个 renderType="image" 条目）。
+
+    命名策略：`{msg_id}_{idx}.{ext}`，便于历史回看按消息 ID 反查 / 清理。
+
+    容错：源文件不存在或拷贝失败时打 warning 跳过，不阻断主流程。
+    skill 脚本自己的工作区（skills/wifi_simulation/data/run_<uuid>/）可随时清理，
+    本函数拷贝到 `data/images/` 的副本是持久化副本。
+    """
+    parsed = _parse_stdout(result_raw)
+    if not isinstance(parsed, dict):
+        return []
+    images = parsed.get("image_paths") or []
+    if not isinstance(images, list) or not images:
+        return []
+
+    api_log = logger.bind(channel="api")
+    render_blocks: list[dict] = []
+
+    try:
+        _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        api_log.exception(f"创建图片持久化目录失败: {_IMAGES_DIR}")
+        return []
+
+    for idx, item in enumerate(images):
+        if not isinstance(item, dict):
+            continue
+        src = item.get("path") or ""
+        label = item.get("label") or f"图片 {idx + 1}"
+        if not src:
+            continue
+
+        src_path = Path(src)
+        if not src_path.exists():
+            api_log.warning(f"wifi image 源文件不存在: {src}")
+            continue
+
+        ext = (src_path.suffix.lstrip(".") or "png").lower()
+        image_id = f"{msg_id}_{idx}"
+        dest = _IMAGES_DIR / f"{image_id}.{ext}"
+
+        try:
+            shutil.copy2(src_path, dest)
+        except Exception:
+            api_log.exception(f"拷贝 wifi image 失败: {src} → {dest}")
+            continue
+
+        render_blocks.append({
+            "renderType": "image",
+            "renderData": {
+                "imageId": image_id,
+                "imageUrl": f"/api/images/{image_id}",
+                "title": label,
+                "conclusion": "",
+            },
+        })
+        api_log.info(f"wifi image 持久化 → {dest.name} (label={label!r})")
+
+    return render_blocks
