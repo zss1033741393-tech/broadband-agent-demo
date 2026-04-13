@@ -144,7 +144,6 @@ function StepCard({ step, defaultExpanded = true, streaming }: Props) {
                 }
                 const sub = item.data;
                 const isLast = i === step.items.length - 1;
-                const hasOutput = sub.stdout || sub.stderr;
                 return (
                   <div key={sub.subStepId} className={styles.tlItem}>
                     <span className={`${styles.dot} ${isLast ? styles.dotLast : ''}`} />
@@ -166,23 +165,6 @@ function StepCard({ step, defaultExpanded = true, streaming }: Props) {
                                 <code key={ai} className={styles.tlCallArg}>{a}</code>
                               ))}
                             </span>
-                          )}
-                        </div>
-                      )}
-                      {/* 执行结果 */}
-                      {hasOutput && (
-                        <div className={styles.tlResult}>
-                          {sub.stdout && (
-                            <div className={styles.tlStdout}>
-                              <span className={styles.tlOutputLabel}>stdout</span>
-                              <pre className={styles.tlOutputContent}>{sub.stdout}</pre>
-                            </div>
-                          )}
-                          {sub.stderr && (
-                            <div className={styles.tlStderr}>
-                              <span className={styles.tlOutputLabel}>stderr</span>
-                              <pre className={styles.tlOutputContent}>{sub.stderr}</pre>
-                            </div>
                           )}
                         </div>
                       )}
