@@ -27,7 +27,13 @@
   line-height: 1.55;
 }
 
+.reportWrap {
+  display: flex;
+  justify-content: center;
+}
+
 .report {
+  width: 70%;
   background: #161b22;
   border: 1px solid #1f2937;
   border-radius: 12px;
