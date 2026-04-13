@@ -1,6 +1,6 @@
 import type { InsightEvent, InsightStep } from '@/types/insight';
 
-type ParserState = 'NORMAL' | 'IN_MARKER' | 'IN_JSON';
+type ParserState = 'NORMAL' | 'IN_MARKER' | 'IN_JSON' | 'CONSUME_NEWLINE';
 
 export interface ParseResult {
   cleanText: string;
@@ -57,8 +57,8 @@ export class InsightEventParser {
         }
 
       } else if (this.state === 'IN_JSON') {
-        // 跳过 marker 后的换行
-        if (this.jsonBuf === '' && (ch === '\n' || ch === '\r')) continue;
+        // 跳过 marker 后以及 JSON 前的空白换行
+        if (this.jsonBuf === '' && (ch === '\n' || ch === '\r' || ch === ' ')) continue;
 
         this.jsonBuf += ch;
 
@@ -66,18 +66,26 @@ export class InsightEventParser {
         if (ch === '}') {
           this.depth--;
           if (this.depth === 0 && this.jsonBuf.trim().length > 0) {
-            // JSON 对象完整
+            // JSON 对象完整，消耗紧跟的换行（避免遗留到 cleanText）
             const evt = this._parseEvent(this.eventType, this.jsonBuf.trim());
             if (evt) events.push(evt);
             this.jsonBuf = '';
             this.eventType = '';
-            this.state = 'NORMAL';
+            this.state = 'CONSUME_NEWLINE';
           }
         }
+      } else if ((this.state as string) === 'CONSUME_NEWLINE') {
+        // 吃掉 JSON 结束后紧跟的换行符，然后回 NORMAL
+        if (ch === '\n' || ch === '\r') continue;
+        this.state = 'NORMAL';
+        // 当前字符不是换行，重新处理
+        i--;
       }
     }
 
-    return { cleanText, events };
+    // 合并多余空行（3个以上\n压缩为2个）
+    const collapsed = cleanText.replace(/\n{3,}/g, '\n\n');
+    return { cleanText: collapsed, events };
   }
 
   reset() {
