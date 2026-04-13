@@ -66,6 +66,22 @@
   font-weight: 500;
 }
 
+/* D 选项：phase 整体灰掉 */
+.phaseDiscarded {
+  opacity: 0.45;
+}
+
+.phaseNameDiscarded {
+  text-decoration: line-through;
+  color: #6b7280 !important;
+}
+
+.reflectBadgeDiscarded {
+  color: #6b7280 !important;
+  background: rgba(107, 114, 128, 0.1) !important;
+  border-color: rgba(107, 114, 128, 0.25) !important;
+}
+
 .reflectBadge {
   font-size: 10px;
   color: #f59e0b;

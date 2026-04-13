@@ -39,16 +39,23 @@ function StepRow({ step }: { step: InsightStep }) {
 }
 
 function PhaseRow({ phase }: { phase: InsightPhase }) {
+  const isDiscarded = phase.reflection?.choice === 'D';
   return (
-    <div className={styles.phaseBlock}>
+    <div className={`${styles.phaseBlock} ${isDiscarded ? styles.phaseDiscarded : ''}`}>
       <div className={styles.phaseHeader}>
         <PhaseIcon status={phase.status} />
-        <span className={`${styles.phaseName} ${phase.status === 'running' ? styles.phaseNameActive : ''}`}>
+        <span className={`
+          ${styles.phaseName}
+          ${phase.status === 'running' ? styles.phaseNameActive : ''}
+          ${isDiscarded ? styles.phaseNameDiscarded : ''}
+        `.trim()}>
           {phase.name}
         </span>
         {phase.reflection && (
           <Tooltip title={phase.reflection.reason} placement="right" overlayStyle={{ maxWidth: 280 }}>
-            <span className={styles.reflectBadge}>已调整 ({phase.reflection.choice})</span>
+            <span className={`${styles.reflectBadge} ${isDiscarded ? styles.reflectBadgeDiscarded : ''}`}>
+              {isDiscarded ? '已删除 (D)' : `已调整 (${phase.reflection.choice})`}
+            </span>
           </Tooltip>
         )}
       </div>
