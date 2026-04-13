@@ -1,5 +1,5 @@
 import { Tooltip } from 'antd';
-import { CheckCircleFilled, LoadingOutlined, SyncOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, SyncOutlined } from '@ant-design/icons';
 import type { InsightState, InsightPhase, InsightStep, PhaseStatus } from '@/types/insight';
 import styles from './InsightPhasePanel.module.css';
 
@@ -9,7 +9,7 @@ interface Props {
 
 function PhaseIcon({ status }: { status: PhaseStatus }) {
   if (status === 'done') return <CheckCircleFilled className={styles.iconDone} />;
-  if (status === 'running') return <LoadingOutlined className={styles.iconRunning} spin />;
+  if (status === 'running') return <span className={styles.spinRing} />;
   if (status === 'reflected') return <SyncOutlined className={styles.iconReflected} />;
   return <span className={styles.iconPending}>○</span>;
 }
@@ -21,7 +21,7 @@ function StepRow({ step }: { step: InsightStep }) {
       {step.status === 'done'
         ? <CheckCircleFilled className={styles.stepIconDone} />
         : step.status === 'running'
-          ? <LoadingOutlined className={styles.stepIconRunning} spin />
+          ? <span className={styles.spinRingSmall} />
           : <span className={styles.stepDot} />
       }
       <span className={styles.stepLabel}>{label}</span>

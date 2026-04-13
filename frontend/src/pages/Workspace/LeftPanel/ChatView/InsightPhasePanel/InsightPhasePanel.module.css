@@ -84,12 +84,6 @@
   flex-shrink: 0;
 }
 
-.iconRunning {
-  color: #3b82f6;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
 .iconReflected {
   color: #f59e0b;
   font-size: 14px;
@@ -104,6 +98,32 @@
   width: 14px;
   text-align: center;
   display: inline-block;
+}
+
+/* 旋转圆环 — phase 级别 */
+.spinRing {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 旋转圆环 — step 级别（小一号）*/
+.spinRingSmall {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  flex-shrink: 0;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Steps */
