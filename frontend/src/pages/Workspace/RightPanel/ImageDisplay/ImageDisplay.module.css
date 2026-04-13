@@ -1,12 +1,11 @@
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .title {
-  margin: 0 0 12px;
-  font-size: 15px;
+  margin: 0 0 8px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   text-align: center;
@@ -17,8 +16,11 @@
   border: 1px solid #1f2937;
   border-radius: 8px;
   padding: 8px;
-  margin-bottom: 12px;
-  height: 200px;
+  margin-bottom: 8px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
@@ -26,15 +28,15 @@
   background: #161b22;
   border: 1px solid #1f2937;
   border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 13px;
+  padding: 10px 14px;
+  font-size: 12px;
   color: #e5e7eb;
   line-height: 1.6;
 }
 
 .conclusion h1, .conclusion h2, .conclusion h3 {
   color: #fff;
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .conclusion strong {
@@ -42,7 +44,7 @@
 }
 
 .conclusion p {
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .conclusion code {
@@ -50,5 +52,5 @@
   padding: 2px 6px;
   border-radius: 4px;
   color: #f0883e;
-  font-size: 13px;
+  font-size: 12px;
 }
