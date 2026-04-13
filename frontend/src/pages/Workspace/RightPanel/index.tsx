@@ -8,9 +8,9 @@ import InsightDisplay from './InsightDisplay';
 import styles from './RightPanel.module.css';
 import type { RenderBlock } from '@/types/render';
 
-const MIN_RIGHT_WIDTH = 0.25; // 右槽最小宽度，低于此则另起一行
+const SOLO_THRESHOLD = 0.70; // 自然宽度超过此值则独占整行
 
-/** 根据数据量线性计算左图宽度（0~1） */
+/** 根据数据量线性计算自然宽度（0~1） */
 function computeWidth(block: RenderBlock): number {
   if (block.renderType === 'image') return 0.5;
   const chart = block.renderData.charts[0];
@@ -24,33 +24,48 @@ function computeWidth(block: RenderBlock): number {
   return Math.min(0.75, Math.max(0.40, count * 0.015));
 }
 
-type Row =
-  | { kind: 'single'; block: RenderBlock; leftWidth: number; report?: string }
-  | { kind: 'pair'; left: RenderBlock; right: RenderBlock; leftWidth: number; report?: string };
+function getReport(block: RenderBlock): string | undefined {
+  return block.renderType === 'insight' && block.renderData.markdownReport?.trim()
+    ? block.renderData.markdownReport
+    : undefined;
+}
 
-/** 贪心行分配：对全量 blocks 做一次纯函数计算 */
+type Row =
+  | { kind: 'single'; block: RenderBlock; report?: string }
+  | { kind: 'pair'; left: RenderBlock; right: RenderBlock; leftPct: number; report?: string };
+
+/** 贪心行分配：配对时按双方自然宽度归一化，动态决定各自占比 */
 function computeRows(renders: RenderBlock[]): Row[] {
   const rows: Row[] = [];
 
   for (const block of renders) {
     const w = computeWidth(block);
-    const report = block.renderType === 'insight' && block.renderData.markdownReport?.trim()
-      ? block.renderData.markdownReport
-      : undefined;
+    const report = getReport(block);
     const lastRow = rows[rows.length - 1];
-    const remaining = lastRow?.kind === 'single' ? 1 - lastRow.leftWidth : 0;
 
-    // 右槽有足够空间 → 填入右侧（右图自适应填满剩余）
-    if (lastRow?.kind === 'single' && remaining >= MIN_RIGHT_WIDTH && !lastRow.report) {
+    // 自然宽度超过阈值 → 独占整行
+    const isSolo = w >= SOLO_THRESHOLD;
+
+    // 上一行是等待配对的单图（无 report、未超阈值）→ 配对
+    if (
+      !isSolo &&
+      lastRow?.kind === 'single' &&
+      !lastRow.report &&
+      computeWidth(lastRow.block) < SOLO_THRESHOLD
+    ) {
+      const leftW = computeWidth(lastRow.block);
+      const total = leftW + w;
+      // 按自然宽度比例归一化，决定左图百分比
+      const leftPct = Math.round((leftW / total) * 100);
       rows[rows.length - 1] = {
         kind: 'pair',
         left: lastRow.block,
         right: block,
-        leftWidth: lastRow.leftWidth,
+        leftPct,
         report,
       };
     } else {
-      rows.push({ kind: 'single', block, leftWidth: w, report });
+      rows.push({ kind: 'single', block, report });
     }
   }
 
@@ -81,14 +96,14 @@ function RightPanel() {
         <div key={i} className={styles.rowWrap}>
           <div className={styles.rowItems}>
             {row.kind === 'single' ? (
-              <div style={{ width: `${row.leftWidth * 100}%` }}>
+              <div style={{ width: '100%' }}>
                 {row.block.renderType === 'image'
                   ? <ImageDisplay data={row.block.renderData} />
                   : <InsightDisplay data={row.block.renderData} />}
               </div>
             ) : (
               <>
-                <div style={{ width: `${row.leftWidth * 100}%`, flexShrink: 0 }}>
+                <div style={{ width: `${row.leftPct}%`, flexShrink: 0 }}>
                   {row.left.renderType === 'image'
                     ? <ImageDisplay data={row.left.renderData} />
                     : <InsightDisplay data={row.left.renderData} />}
