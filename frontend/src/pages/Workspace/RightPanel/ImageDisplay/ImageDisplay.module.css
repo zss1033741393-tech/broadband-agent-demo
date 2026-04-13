@@ -18,18 +18,8 @@
   border-radius: 8px;
   padding: 8px;
   margin-bottom: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 220px;
+  height: 200px;
   overflow: hidden;
-}
-
-.image {
-  max-width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 4px;
 }
 
 .conclusion {
