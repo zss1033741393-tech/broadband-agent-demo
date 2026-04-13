@@ -175,9 +175,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         { content, deepThinking },
         ctrl.signal,
       );
+      const sseLog: { event: string; data: unknown }[] = [];
       await parseSseStream(
         resp,
         (e) => {
+          sseLog.push({ event: e.event, data: e.data });
           switch (e.event) {
             case 'thinking': {
               const d = e.data as ThinkingEvent;
@@ -357,6 +359,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       }
     } finally {
       set({ isStreaming: false, _abortCtrl: null });
+      // 开发模式下将 SSE 日志写入本地文件
+      if (import.meta.env.DEV && sseLog.length > 0) {
+        fetch('/dev/sse-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ convId: activeConversationId, events: sseLog }),
+        }).catch(() => {});
+      }
     }
   },
 

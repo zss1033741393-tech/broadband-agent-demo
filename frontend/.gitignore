@@ -23,3 +23,6 @@ pnpm-debug.log*
 # Vite 编译产物
 vite.config.js
 vite.config.d.ts
+
+# SSE 日志（开发调试用，不提交）
+data/
