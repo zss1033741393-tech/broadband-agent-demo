@@ -16,20 +16,29 @@ function computeWidth(block: RenderBlock): number {
   const chart = block.renderData.charts[0];
   if (!chart) return 0.5;
   const series = (chart.echartsOption.series ?? []) as { type?: string; data?: unknown[] }[];
-  if (series.some((s) => s.type === 'pie')) return 0.35;
+  const nonPieSeries = series.filter((s) => s.type !== 'pie');
+  // 纯 pie 图（所有 series 都是 pie）才给小宽度
+  if (nonPieSeries.length === 0) return 0.35;
 
   const xData = (chart.echartsOption.xAxis as { data?: unknown[] } | undefined)?.data;
-  const xCount = Array.isArray(xData) ? xData.length : 0;
+  // yAxis 也可能是 category（横向柱状图）
+  const yData = (chart.echartsOption.yAxis as { data?: unknown[]; type?: string } | undefined);
+  const categoryData = Array.isArray(xData) ? xData
+    : (yData?.type === 'category' && Array.isArray(yData?.data)) ? yData.data
+    : [];
+  const xCount = categoryData.length;
 
   // 非 pie 的 series 数量（分组柱状图每个 x 有多根柱子）
-  const seriesCount = series.filter((s) => s.type !== 'pie').length || 1;
+  const seriesCount = nonPieSeries.length || 1;
 
   // 有效密度 = x 轴数 × series 数
   const effectiveCount = xCount * seriesCount;
   if (effectiveCount === 0) return 0.5;
 
-  // clamp(40%, effectiveCount * 1.5%, 75%)
-  return Math.min(0.75, Math.max(0.40, effectiveCount * 0.015));
+  // 有 pie 混入（复合图）额外加宽 15%
+  const hasPie = series.some((s) => s.type === 'pie');
+  const base = Math.min(0.75, Math.max(0.40, effectiveCount * 0.015));
+  return hasPie ? Math.min(0.75, base + 0.15) : base;
 }
 
 function getReport(block: RenderBlock): string | undefined {
