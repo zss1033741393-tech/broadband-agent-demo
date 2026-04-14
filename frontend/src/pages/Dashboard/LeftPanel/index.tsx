@@ -163,8 +163,9 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         </div>
       </div>
 
-      {/* 报告就绪时的固定悬浮按钮，紧贴输入框上方 */}
+      {/* 报告就绪且 sheet 展开时，固定悬浮按钮紧贴输入框上方 */}
       {(() => {
+        if (!sheetOpen) return null;
         const allBlocks = messages.flatMap((m) => m.blocks ?? []);
         const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
         if (!reportBlock || reportBlock.type !== 'report_ready') return null;

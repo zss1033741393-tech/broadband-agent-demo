@@ -1,11 +1,12 @@
 .wrap {
   flex-shrink: 0;
   padding: 6px 14px 4px;
+  display: flex;
+  justify-content: center;
 }
 
 .btn {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
