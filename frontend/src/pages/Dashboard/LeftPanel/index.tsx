@@ -8,8 +8,10 @@ import MessageList from '@/pages/Workspace/LeftPanel/ChatView/MessageList';
 import InputBubble from '@/pages/Workspace/LeftPanel/ChatView/InputBubble';
 import styles from './LeftPanel.module.css';
 
+import type { ChartItem } from '@/types/render';
+
 interface Props {
-  onViewReport: (content: string) => void;
+  onViewReport: (content: string, charts: ChartItem[]) => void;
 }
 
 /**

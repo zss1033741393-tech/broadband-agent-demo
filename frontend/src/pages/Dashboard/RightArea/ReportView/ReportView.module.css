@@ -48,6 +48,40 @@
   padding: 24px 32px;
 }
 
+/* 文字 + 图表交替的外层容器 */
+.body {
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* 图表卡片 */
+.chartCard {
+  background: #161b22;
+  border: 1px solid #1f2937;
+  border-radius: 12px;
+  padding: 20px 20px 16px;
+  margin: 8px 0 20px;
+}
+
+.chartConclusion {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #1f2937;
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.6;
+}
+
+.conclusionIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 /* Markdown 内容样式 */
 .content {
   color: #d1d5db;

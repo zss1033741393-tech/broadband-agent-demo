@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Empty, Skeleton } from 'antd';
 import type { Message } from '@/types/message';
+import type { ChartItem } from '@/types/render';
 import UserBubble from '../UserBubble';
 import ThinkingBlock from '../ThinkingBlock';
 import StepCard from '../StepCard';
@@ -15,7 +16,7 @@ interface Props {
   loading: boolean;
   isStreaming: boolean;
   onEditMessage: (content: string) => void;
-  onViewReport?: (content: string) => void;
+  onViewReport?: (content: string, charts: ChartItem[]) => void;
 }
 
 function MessageList({ messages, loading, isStreaming, onEditMessage, onViewReport }: Props) {
@@ -106,6 +107,7 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
                     <ReportBubble
                       key={`report-${i}`}
                       content={block.content}
+                      charts={block.charts}
                       onView={onViewReport}
                     />
                   );

@@ -2,10 +2,12 @@ import { useState } from 'react';
 import AlertOverlay from './AlertOverlay';
 import ReportView from './ReportView';
 import styles from './RightArea.module.css';
+import type { ChartItem } from '@/types/render';
 
 interface Props {
   view: 'map' | 'report';
   reportContent: string;
+  reportCharts: ChartItem[];
   onBack: () => void;
 }
 
@@ -13,7 +15,7 @@ const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 3.0;
 const STEP = 0.15;
 
-function RightArea({ view, reportContent, onBack }: Props) {
+function RightArea({ view, reportContent, reportCharts, onBack }: Props) {
   const [zoom, setZoom] = useState(1);
 
   const zoomIn  = () => setZoom((z) => Math.min(MAX_ZOOM, parseFloat((z + STEP).toFixed(2))));
@@ -27,7 +29,7 @@ function RightArea({ view, reportContent, onBack }: Props) {
       </div>
 
       {view === 'report' ? (
-        <ReportView content={reportContent} onBack={onBack} />
+        <ReportView content={reportContent} charts={reportCharts} onBack={onBack} />
       ) : (
         /* 4.2 地图区域 + 4.3 告警浮层 */
         <div className={styles.mapArea}>
