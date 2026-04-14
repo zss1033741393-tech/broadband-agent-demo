@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import StatBar from './StatBar';
@@ -21,6 +21,11 @@ interface Props {
 function DashboardLeftPanel({ onViewReport }: Props) {
   const [convId, setConvId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetHeight, setSheetHeight] = useState(700);
+  const [resizing, setResizing] = useState(false);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
 
   const messagesByConvId = useWorkspaceStore((s) => s.messagesByConvId);
   const streamingConvIds = useWorkspaceStore((s) => s.streamingConvIds);
@@ -61,16 +66,57 @@ function DashboardLeftPanel({ onViewReport }: Props) {
     sendMessage(content, deepThinking);
   };
 
-  const sheetClass = [
-    styles.sheet,
-    messages.length > 0 && !sheetOpen ? styles.sheetCollapsed : '',
-    sheetOpen ? styles.sheetExpanded : '',
-  ].join(' ');
+  // 计算 sheet 的 transform（hidden / collapsed / expanded）
+  const sheetTranslateY = sheetOpen
+    ? 0
+    : messages.length > 0
+      ? sheetHeight - 36   // 收起：露出 36px 标题栏
+      : sheetHeight;        // 完全隐藏
+
+  const sheetStyle: React.CSSProperties = {
+    height: sheetHeight,
+    transform: `translateY(${sheetTranslateY}px)`,
+  };
+
+  const sheetClass = [styles.sheet, resizing ? styles.noTransition : ''].join(' ');
+
+  // 拖拽手柄 mousedown
+  const onDragMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // 不触发 header 的 onClick
+    setResizing(true);
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = sheetHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = dragStartY.current - ev.clientY; // 向上拖 delta > 0 → 变高
+      const maxH = contentAreaRef.current ? contentAreaRef.current.clientHeight : 900;
+      const next = Math.min(maxH, Math.max(80, dragStartHeight.current + delta));
+      setSheetHeight(next);
+      // 拖到很小时自动收起
+      if (next <= 80 && sheetOpen) setSheetOpen(false);
+      else if (next > 80 && !sheetOpen) setSheetOpen(true);
+    };
+
+    const onMouseUp = () => {
+      setResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetHeight, sheetOpen]);
 
   return (
     <aside className={styles.leftPanel}>
       {/* contentArea：sheet 的定位参照容器，撑满输入框以上的全部空间 */}
-      <div className={styles.contentArea}>
+      <div className={styles.contentArea} ref={contentAreaRef}>
         <div className={styles.scrollArea}>
           <StatBar />
           <div className={styles.bannerArea}>
@@ -85,7 +131,9 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         <ChatSection convId={convId} />
 
         {/* 对话 Sheet：仅含 header + 消息列表，无自带输入框 */}
-        <div className={sheetClass}>
+        <div className={sheetClass} style={sheetStyle}>
+          {/* 拖拽手柄：按住上下拖动调整高度 */}
+          <div className={styles.dragHandle} onMouseDown={onDragMouseDown} />
           <div
             className={styles.sheetHeader}
             onClick={() => setSheetOpen((prev) => !prev)}
