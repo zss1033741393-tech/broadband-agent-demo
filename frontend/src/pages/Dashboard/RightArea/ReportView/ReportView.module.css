@@ -1,0 +1,146 @@
+.container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #080d12;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #1f2937;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  color: #9ca3af;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.backBtn:hover {
+  border-color: #6b7280;
+  color: #e5e7eb;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 32px;
+}
+
+/* Markdown 内容样式 */
+.content {
+  color: #d1d5db;
+  font-size: 13px;
+  line-height: 1.75;
+  max-width: 860px;
+}
+
+.content h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f9fafb;
+  margin: 0 0 8px;
+  border-bottom: 1px solid #1f2937;
+  padding-bottom: 10px;
+}
+
+.content h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 24px 0 10px;
+}
+
+.content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #d1d5db;
+  margin: 16px 0 8px;
+}
+
+.content p {
+  margin: 0 0 10px;
+}
+
+.content ul, .content ol {
+  padding-left: 20px;
+  margin: 0 0 10px;
+}
+
+.content li {
+  margin-bottom: 4px;
+}
+
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 12px;
+}
+
+.content th {
+  background: #161b22;
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid #1f2937;
+}
+
+.content td {
+  padding: 7px 12px;
+  border: 1px solid #1f2937;
+  color: #d1d5db;
+}
+
+.content tr:nth-child(even) td {
+  background: #0d1117;
+}
+
+.content strong {
+  color: #f3f4f6;
+  font-weight: 600;
+}
+
+.content hr {
+  border: none;
+  border-top: 1px solid #1f2937;
+  margin: 20px 0;
+}
+
+.content blockquote {
+  border-left: 3px solid #374151;
+  padding-left: 12px;
+  color: #6b7280;
+  margin: 12px 0;
+  font-style: italic;
+}
+
+.content code {
+  background: #161b22;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #93c5fd;
+}
