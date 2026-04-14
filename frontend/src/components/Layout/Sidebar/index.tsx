@@ -33,7 +33,7 @@ function Sidebar() {
           <button
             type="button"
             className={`${styles.iconBtn} ${isUserQuery ? styles.active : ''}`}
-            onClick={() => navigate('/workspace')}
+            onClick={() => navigate('/workspace', { state: { newConversation: true } })}
             aria-label="用户级问题查询入口"
           >
             <SearchOutlined />

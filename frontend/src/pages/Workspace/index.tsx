@@ -12,7 +12,9 @@ const DEFAULT_LEFT = 484;
 
 function Workspace() {
   const location = useLocation();
-  const prefill = (location.state as { prefillMessage?: string } | null)?.prefillMessage;
+  const state = location.state as { prefillMessage?: string; newConversation?: boolean } | null;
+  const prefill = state?.prefillMessage;
+  const newConversation = state?.newConversation;
 
   const leftWidth = useRef(DEFAULT_LEFT);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,7 +51,7 @@ function Workspace() {
         <Sidebar />
         <div className={styles.workspace} ref={containerRef}>
           <div ref={leftRef} className={styles.leftWrap} style={{ width: DEFAULT_LEFT }}>
-            <LeftPanel prefillMessage={prefill} />
+            <LeftPanel prefillMessage={prefill} newConversation={newConversation} />
           </div>
           <div className={styles.divider} onMouseDown={onMouseDown} />
           <RightPanel fromEventCard={!!prefill} />
