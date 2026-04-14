@@ -14,8 +14,10 @@
   gap: 20px;
 }
 
-.placeholderSvg {
-  opacity: 0.7;
+.topoImg {
+  width: 200px;
+  height: auto;
+  opacity: 0.6;
 }
 
 .imageHint {

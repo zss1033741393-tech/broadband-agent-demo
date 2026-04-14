@@ -1,4 +1,5 @@
 import { MoonOutlined, UserOutlined, ExclamationCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import logoImg from '@/assets/images/logo.png';
 import styles from './TopBar.module.css';
 
 function TopBar() {
@@ -6,9 +7,7 @@ function TopBar() {
     <header className={styles.topBar}>
       {/* 左侧 LOGO */}
       <div className={styles.logoArea}>
-        <div className={styles.logoPlaceholder} title="光接入智能体">
-          <span className={styles.logoText}>光智</span>
-        </div>
+        <img src={logoImg} alt="光接入智能体" className={styles.logoImg} />
       </div>
 
       {/* 中间标题 */}

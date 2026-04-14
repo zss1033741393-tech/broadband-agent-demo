@@ -74,9 +74,11 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         <div className={styles.scrollArea}>
           <StatBar />
           <div className={styles.bannerArea}>
-            <div className={styles.bannerPlaceholder}>
-              <span className={styles.bannerText}>贴图预留区域</span>
-            </div>
+            <img
+              src="/images/dashboard-banner.png"
+              alt="区域概况"
+              className={styles.bannerImg}
+            />
           </div>
           <EventCards />
         </div>

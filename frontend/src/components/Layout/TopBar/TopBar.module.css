@@ -19,22 +19,11 @@
   width: 140px;
 }
 
-.logoPlaceholder {
-  width: 88px;
+.logoImg {
   height: 32px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.logoText {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 2px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 /* 中间标题：绝对居中 */
