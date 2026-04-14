@@ -14,12 +14,13 @@ interface Props {
 
 /**
  * Dashboard 左侧面板：
- * - 默认模式：StatBar + Banner + EventCards + ChatSection（固定结论 + 输入框）
- * - 对话模式：用户首次发问后，整个左侧切换为纯 QA 对话视图
+ * - 默认模式：StatBar + Banner + EventCards + ChatSection + 输入框
+ * - 发问后：底部 Sheet 从下方滑入，覆盖 EventCards 及以下内容
+ * - 点击 Sheet 标题栏可收起
  */
 function DashboardLeftPanel({ onViewReport }: Props) {
   const [convId, setConvId] = useState<string | null>(null);
-  const [chatMode, setChatMode] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const messagesByConvId = useWorkspaceStore((s) => s.messagesByConvId);
   const streamingConvIds = useWorkspaceStore((s) => s.streamingConvIds);
@@ -52,40 +53,13 @@ function DashboardLeftPanel({ onViewReport }: Props) {
   const handleSend = (content: string, deepThinking: boolean) => {
     if (!convId || isStreaming) return;
     setActiveConversation(convId);
-    setChatMode(true);
+    setSheetOpen(true);
     sendMessage(content, deepThinking);
   };
 
-  const inputBubble = (
-    <div className={styles.inputArea}>
-      <InputBubble
-        inline
-        disabled={!convId || isStreaming}
-        disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
-        onSend={handleSend}
-      />
-    </div>
-  );
-
-  if (chatMode) {
-    return (
-      <aside className={styles.leftPanel}>
-        <div className={styles.chatFullArea}>
-          <MessageList
-            messages={messages}
-            loading={isLoading}
-            isStreaming={isStreaming}
-            onEditMessage={() => {}}
-            onViewReport={onViewReport}
-          />
-        </div>
-        {inputBubble}
-      </aside>
-    );
-  }
-
   return (
     <aside className={styles.leftPanel}>
+      {/* 默认布局——始终保留在 Sheet 背后 */}
       <div className={styles.scrollArea}>
         <StatBar />
         <div className={styles.bannerArea}>
@@ -96,7 +70,44 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         <EventCards />
       </div>
       <ChatSection convId={convId} />
-      {inputBubble}
+      <div className={styles.inputArea}>
+        <InputBubble
+          inline
+          disabled={!convId || isStreaming}
+          disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
+          onSend={handleSend}
+        />
+      </div>
+
+      {/* 对话 Sheet：从底部滑入 */}
+      <div className={`${styles.sheet} ${sheetOpen ? styles.sheetOpen : ''}`}>
+        {/* 标题栏：点击收起 */}
+        <div className={styles.sheetHeader} onClick={() => setSheetOpen(false)}>
+          <span className={styles.sheetTitle}>网络级分析</span>
+          <span className={styles.sheetArrow}>↓</span>
+        </div>
+
+        {/* 消息列表 */}
+        <div className={styles.sheetBody}>
+          <MessageList
+            messages={messages}
+            loading={isLoading}
+            isStreaming={isStreaming}
+            onEditMessage={() => {}}
+            onViewReport={onViewReport}
+          />
+        </div>
+
+        {/* 跟进输入框 */}
+        <div className={styles.sheetInput}>
+          <InputBubble
+            inline
+            disabled={!convId || isStreaming}
+            disabledPlaceholder={isStreaming ? 'Agent 处理中...' : ''}
+            onSend={handleSend}
+          />
+        </div>
+      </div>
     </aside>
   );
 }
