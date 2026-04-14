@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Empty, Skeleton } from 'antd';
 import type { Message } from '@/types/message';
-import type { ChartItem } from '@/types/render';
 import UserBubble from '../UserBubble';
 import ThinkingBlock from '../ThinkingBlock';
 import StepCard from '../StepCard';
 import ConclusionCard from '../ConclusionCard';
 import InsightPhasePanel from '../InsightPhasePanel';
 import ErrorCard from '../ErrorCard';
-import ReportBubble from '@/pages/Dashboard/LeftPanel/ReportBubble';
 import styles from './MessageList.module.css';
 
 interface Props {
@@ -16,10 +14,9 @@ interface Props {
   loading: boolean;
   isStreaming: boolean;
   onEditMessage: (content: string) => void;
-  onViewReport?: (content: string, charts: ChartItem[]) => void;
 }
 
-function MessageList({ messages, loading, isStreaming, onEditMessage, onViewReport }: Props) {
+function MessageList({ messages, loading, isStreaming, onEditMessage }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,15 +99,9 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
                     />
                   );
                 }
-                if (block.type === 'report_ready' && onViewReport) {
-                  return (
-                    <ReportBubble
-                      key={`report-${i}`}
-                      content={block.content}
-                      charts={block.charts}
-                      onView={onViewReport}
-                    />
-                  );
+                if (block.type === 'report_ready') {
+                  // 报告就绪后由面板层的固定悬浮按钮处理，消息流中不再重复渲染
+                  return null;
                 }
                 return null;
               })}

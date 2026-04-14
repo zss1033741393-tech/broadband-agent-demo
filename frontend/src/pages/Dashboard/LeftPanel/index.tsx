@@ -6,6 +6,7 @@ import EventCards from './EventCards';
 import ChatSection from './ChatSection';
 import MessageList from '@/pages/Workspace/LeftPanel/ChatView/MessageList';
 import InputBubble from '@/pages/Workspace/LeftPanel/ChatView/InputBubble';
+import ReportFloatBtn from '@/components/ReportFloatBtn';
 import styles from './LeftPanel.module.css';
 
 import type { ChartItem } from '@/types/render';
@@ -157,11 +158,24 @@ function DashboardLeftPanel({ onViewReport }: Props) {
               loading={isLoading}
               isStreaming={isStreaming}
               onEditMessage={() => {}}
-              onViewReport={onViewReport}
             />
           </div>
         </div>
       </div>
+
+      {/* 报告就绪时的固定悬浮按钮，紧贴输入框上方 */}
+      {(() => {
+        const allBlocks = messages.flatMap((m) => m.blocks ?? []);
+        const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
+        if (!reportBlock || reportBlock.type !== 'report_ready') return null;
+        return (
+          <ReportFloatBtn
+            content={reportBlock.content}
+            charts={reportBlock.charts}
+            onView={onViewReport}
+          />
+        );
+      })()}
 
       {/* 输入框：始终固定在面板底部，位置永远不变 */}
       <div className={styles.inputArea}>

@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import MessageList from './MessageList';
 import InputBubble from './InputBubble';
+import ReportFloatBtn from '@/components/ReportFloatBtn';
 import styles from './ChatView.module.css';
 
 interface Props {
@@ -61,7 +62,6 @@ function ChatView({ prefillMessage }: Props) {
           messages={messages}
           loading={messagesLoading}
           isStreaming={isStreaming}
-          onViewReport={(content, charts) => setActiveReport({ content, charts })}
           onEditMessage={(content) => {
             if (isStreaming && activeId) {
               // 中止当前会话的流，移除未完成的 assistant 消息
@@ -81,6 +81,20 @@ function ChatView({ prefillMessage }: Props) {
           }}
         />
       </div>
+
+      {/* 报告就绪时的固定悬浮按钮 */}
+      {(() => {
+        const allBlocks = messages.flatMap((m) => m.blocks ?? []);
+        const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
+        if (!reportBlock || reportBlock.type !== 'report_ready') return null;
+        return (
+          <ReportFloatBtn
+            content={reportBlock.content}
+            charts={reportBlock.charts}
+            onView={(content, charts) => setActiveReport({ content, charts })}
+          />
+        );
+      })()}
 
       <InputBubble
         disabled={!activeId}
