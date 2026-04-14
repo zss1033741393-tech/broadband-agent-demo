@@ -52,7 +52,7 @@ function Workspace() {
             <LeftPanel prefillMessage={prefill} />
           </div>
           <div className={styles.divider} onMouseDown={onMouseDown} />
-          <RightPanel />
+          <RightPanel fromEventCard={!!prefill} />
         </div>
       </div>
     </div>

@@ -107,8 +107,13 @@ function renderBlock(block: RenderBlock) {
   return <InsightDisplay data={block.renderData} />;
 }
 
-function RightPanel() {
+interface Props {
+  fromEventCard: boolean;
+}
+
+function RightPanel({ fromEventCard }: Props) {
   const currentRenders = useWorkspaceStore((s) => s.currentRenders);
+  const leftView = useWorkspaceStore((s) => s.leftView);
   const activeId = useWorkspaceStore((s) => s.activeConversationId);
   const messages = useWorkspaceStore((s) => s.messagesByConvId[activeId ?? ''] ?? []);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -122,10 +127,16 @@ function RightPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [currentRenders.length]);
 
+  // 会话列表状态：右侧完全空白
+  if (leftView === 'list') {
+    return <main className={styles.rightPanel} />;
+  }
+
+  // 无渲染内容：仅事件卡片入口显示 EmptyState，其他情况空白
   if (currentRenders.length === 0) {
     return (
       <main className={styles.rightPanel}>
-        <EmptyState />
+        {fromEventCard && <EmptyState />}
       </main>
     );
   }
