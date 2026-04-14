@@ -54,7 +54,7 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 14px 12px 10px;
   height: 100%;
   box-sizing: border-box;
 }
@@ -100,7 +100,7 @@
   cursor: pointer;
   line-height: 1;
   transition: color 0.15s;
-  margin-top: auto;
+  margin-top: 4px;
   align-self: flex-end;
 }
 
