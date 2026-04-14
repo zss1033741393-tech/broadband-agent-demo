@@ -1,14 +1,19 @@
 import { Tooltip } from 'antd';
-import { BarChartOutlined, SettingOutlined, DashboardOutlined } from '@ant-design/icons';
+import { SettingOutlined, DashboardOutlined, SearchOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import styles from './Sidebar.module.css';
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const leftView = useWorkspaceStore((s) => s.leftView);
+  const backToList = useWorkspaceStore((s) => s.backToList);
 
   const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
   const isWorkspace = location.pathname === '/workspace';
+  const isUserQuery = isWorkspace && leftView === 'chat';
+  const isHistory = isWorkspace && leftView === 'list';
 
   return (
     <nav className={styles.sidebar}>
@@ -23,14 +28,26 @@ function Sidebar() {
             <DashboardOutlined />
           </button>
         </Tooltip>
-        <Tooltip title="Agent 工作台" placement="right">
+
+        <Tooltip title="用户级问题查询入口" placement="right">
           <button
             type="button"
-            className={`${styles.iconBtn} ${isWorkspace ? styles.active : ''}`}
+            className={`${styles.iconBtn} ${isUserQuery ? styles.active : ''}`}
             onClick={() => navigate('/workspace')}
-            aria-label="Agent 工作台"
+            aria-label="用户级问题查询入口"
           >
-            <BarChartOutlined />
+            <SearchOutlined />
+          </button>
+        </Tooltip>
+
+        <Tooltip title="历史会话" placement="right">
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${isHistory ? styles.active : ''}`}
+            onClick={() => { navigate('/workspace'); backToList(); }}
+            aria-label="历史会话"
+          >
+            <HistoryOutlined />
           </button>
         </Tooltip>
       </div>
