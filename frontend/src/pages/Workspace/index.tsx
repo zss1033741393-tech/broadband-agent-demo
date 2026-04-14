@@ -6,9 +6,9 @@ import LeftPanel from './LeftPanel';
 import RightPanel from './RightPanel';
 import styles from './Workspace.module.css';
 
-const MIN_LEFT = 352;
+const MIN_LEFT = 520;
 const MAX_LEFT = 790;
-const DEFAULT_LEFT = 532;
+const DEFAULT_LEFT = 560;
 
 function Workspace() {
   const location = useLocation();
