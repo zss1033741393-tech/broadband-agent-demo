@@ -14,6 +14,10 @@
   padding: 10px 12px;
   box-sizing: border-box;
   border-bottom: 1px solid #1f2937;
+  /* 顶部光源：与左侧面板平行的冷蓝白光晕 */
+  background:
+    linear-gradient(180deg, rgba(210, 224, 245, 0.09) 0%, rgba(10, 15, 20, 0) 100%),
+    #0d1117;
 }
 
 .topBannerImg {
