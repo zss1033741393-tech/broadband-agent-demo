@@ -123,15 +123,17 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         </div>
       </div>
 
-      {/* 输入框：始终在面板底部，不参与 sheet 定位 */}
-      <div className={styles.inputArea}>
-        <InputBubble
-          inline
-          disabled={!convId || isStreaming}
-          disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
-          onSend={handleSend}
-        />
-      </div>
+      {/* 外部输入框：仅在对话未开始时显示，开始后由 sheet 内输入框接管 */}
+      {messages.length === 0 && (
+        <div className={styles.inputArea}>
+          <InputBubble
+            inline
+            disabled={!convId || isStreaming}
+            disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
+            onSend={handleSend}
+          />
+        </div>
+      )}
     </aside>
   );
 }
