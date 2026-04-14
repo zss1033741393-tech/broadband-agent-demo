@@ -70,7 +70,11 @@ function rebuildBlocks(m: Message): MessageBlock[] {
   }
   for (const step of m.steps ?? []) {
     step.completed = true;
-    step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
+    // step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
+    if (!step.items?.length) {
+      step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
+    }
+
     blocks.push({ type: 'step', stepId: step.stepId });
   }
   if (m.content?.trim()) {
