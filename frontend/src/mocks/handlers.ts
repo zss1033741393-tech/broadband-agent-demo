@@ -9,6 +9,7 @@ import messagesConv004 from '@mock/messages-conv_004.json';
 import sseImage from '@mock/sse-stream-image.json';
 import sseInsight from '@mock/sse-stream-insight.json';
 import sseError from '@mock/sse-stream-error.json';
+import sseReport from '@mock/sse-stream-report.json';
 import { replaySse, type SseEvent } from './sseReplay';
 
 const messagesMap: Record<string, unknown> = {
@@ -47,7 +48,8 @@ export const handlers = [
   }),
 
   // 发送消息（SSE 流式）
-  http.post('/api/conversations/:id/messages', async ({ request }) => {
+  http.post('/api/conversations/:id/messages', async ({ request, params }) => {
+    const id = params.id as string;
     const body = (await request.json().catch(() => ({}))) as { content?: string };
     const content = body?.content ?? '';
     let stream: { events: SseEvent[] };
@@ -55,6 +57,9 @@ export const handlers = [
       stream = sseError as { events: SseEvent[] };
     } else if (/报告|洞察|insight|周报|性能/.test(content)) {
       stream = sseInsight as { events: SseEvent[] };
+    } else if (id.startsWith('conv_new_')) {
+      // Dashboard 新建会话 → 返回报告流
+      stream = sseReport as { events: SseEvent[] };
     } else {
       stream = sseImage as { events: SseEvent[] };
     }

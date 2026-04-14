@@ -9,6 +9,7 @@ import { InsightEventParser, applyInsightEvent } from '@/utils/insightEventParse
 import type {
   DoneEvent,
   ErrorEvent as SseErrorEvent,
+  ReportEvent,
   StepStartEvent,
   StepEndEvent,
   SubStepEvent,
@@ -374,6 +375,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               if (get().activeConversationId === convId) {
                 set((s) => ({ currentRenders: [...s.currentRenders, block] }));
               }
+              break;
+            }
+            case 'report': {
+              const d = e.data as ReportEvent;
+              updateAssistant((m) => ({
+                ...m,
+                blocks: [...(m.blocks ?? []), { type: 'report_ready', content: d.content }],
+              }));
               break;
             }
             case 'done': {
