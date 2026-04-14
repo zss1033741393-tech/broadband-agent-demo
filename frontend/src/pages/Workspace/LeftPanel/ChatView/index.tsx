@@ -12,6 +12,7 @@ interface Props {
 
 function ChatView({ prefillMessage }: Props) {
   const backToList = useWorkspaceStore((s) => s.backToList);
+  const setActiveReport = useWorkspaceStore((s) => s.setActiveReport);
   const activeId = useWorkspaceStore((s) => s.activeConversationId);
   const messagesByConvId = useWorkspaceStore((s) => s.messagesByConvId);
   const messagesLoadingConvIds = useWorkspaceStore((s) => s.messagesLoadingConvIds);
@@ -60,6 +61,7 @@ function ChatView({ prefillMessage }: Props) {
           messages={messages}
           loading={messagesLoading}
           isStreaming={isStreaming}
+          onViewReport={(content, charts) => setActiveReport({ content, charts })}
           onEditMessage={(content) => {
             if (isStreaming && activeId) {
               // 中止当前会话的流，移除未完成的 assistant 消息

@@ -5,6 +5,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import EmptyState from './EmptyState';
 import ImageDisplay from './ImageDisplay';
 import InsightDisplay from './InsightDisplay';
+import ReportView from '@/pages/Dashboard/RightArea/ReportView';
 import styles from './RightPanel.module.css';
 import type { RenderBlock } from '@/types/render';
 import type { InsightState } from '@/types/insight';
@@ -116,6 +117,8 @@ function RightPanel({ fromEventCard }: Props) {
   const leftView = useWorkspaceStore((s) => s.leftView);
   const activeId = useWorkspaceStore((s) => s.activeConversationId);
   const messages = useWorkspaceStore((s) => s.messagesByConvId[activeId ?? ''] ?? []);
+  const activeReport = useWorkspaceStore((s) => s.activeReport);
+  const setActiveReport = useWorkspaceStore((s) => s.setActiveReport);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // 取最新 assistant 消息的 insightState 用于 phase 名查找
@@ -130,6 +133,19 @@ function RightPanel({ fromEventCard }: Props) {
   // 会话列表状态：右侧完全空白
   if (leftView === 'list') {
     return <main className={styles.rightPanel} />;
+  }
+
+  // 报告视图：覆盖在右侧画布上
+  if (activeReport) {
+    return (
+      <main className={styles.rightPanel}>
+        <ReportView
+          content={activeReport.content}
+          charts={activeReport.charts}
+          onBack={() => setActiveReport(null)}
+        />
+      </main>
+    );
   }
 
   // 无渲染内容：仅事件卡片入口显示 EmptyState，其他情况空白
