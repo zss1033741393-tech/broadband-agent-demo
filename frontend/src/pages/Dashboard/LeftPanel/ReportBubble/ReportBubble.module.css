@@ -1,0 +1,39 @@
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #1a2744 0%, #0f1f3d 100%);
+  border: 1px solid #2563eb55;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  user-select: none;
+}
+
+.bubble:hover {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #1e3060 0%, #112348 100%);
+  transform: translateY(-1px);
+}
+
+.bubble:active {
+  transform: translateY(0);
+}
+
+.icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #93c5fd;
+}
+
+.arrow {
+  font-size: 11px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
