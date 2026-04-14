@@ -29,18 +29,20 @@ function RightArea({ view, reportContent, onBack }: Props) {
       {view === 'report' ? (
         <ReportView content={reportContent} onBack={onBack} />
       ) : (
-        /* 4.2 地图区域 + 4.3 告警浮层 */
-        <div className={styles.mapArea}>
-          {/* mapCanvas：图片 + 标签整体缩放，保持相对位置固定 */}
-          <div
-            className={styles.mapCanvas}
-            style={{ transform: `scale(${zoom})` }}
-          >
-            <img src="/images/map-bg.png" alt="区域地图" className={styles.mapBgImg} />
-            <AlertOverlay />
+        /* 4.2 地图区域 + 4.3 告警浮层，外层相对定位承载缩放控件 */
+        <div className={styles.mapWrapper}>
+          <div className={styles.mapArea}>
+            {/* mapCanvas：图片 + 标签整体缩放，保持相对位置固定 */}
+            <div
+              className={styles.mapCanvas}
+              style={{ transform: `scale(${zoom})` }}
+            >
+              <img src="/images/map-bg.png" alt="区域地图" className={styles.mapBgImg} />
+              <AlertOverlay />
+            </div>
           </div>
 
-          {/* 缩放控件：固定在地图右下角，不随 canvas 缩放 */}
+          {/* 缩放控件：固定在右下角，脱离 mapCanvas 的 stacking context */}
           <div className={styles.zoomControls}>
             <button
               className={styles.zoomBtn}
