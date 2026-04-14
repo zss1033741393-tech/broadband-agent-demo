@@ -1,5 +1,5 @@
 .leftPanel {
-  width: 497px;
+  width: 600px;
   flex-shrink: 0;
   height: 100%;
   /* 顶部光源：从带白感的冷蓝灰渐变到深底色 */
@@ -185,4 +185,3 @@
   min-height: 0;
   overflow: hidden;
 }
-
