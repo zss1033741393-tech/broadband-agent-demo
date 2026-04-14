@@ -2,7 +2,7 @@
   flex-shrink: 0;
   padding: 6px 14px 4px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .btn {
