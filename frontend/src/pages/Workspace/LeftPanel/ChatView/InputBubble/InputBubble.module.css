@@ -8,6 +8,12 @@
   pointer-events: none;
 }
 
+.wrapperInline {
+  position: static;
+  width: 100%;
+  pointer-events: auto;
+}
+
 .bubble {
   width: 100%;
   height: 96px;

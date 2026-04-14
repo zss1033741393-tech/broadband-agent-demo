@@ -7,9 +7,13 @@ interface Props {
   disabled?: boolean;
   onSend: (content: string, deepThinking: boolean) => void;
   fillValue?: string;
+  /** inline 模式：static 定位，嵌入父容器而不是绝对浮层 */
+  inline?: boolean;
+  /** 自定义 disabled 时的 placeholder */
+  disabledPlaceholder?: string;
 }
 
-function InputBubble({ disabled, onSend, fillValue }: Props) {
+function InputBubble({ disabled, onSend, fillValue, inline, disabledPlaceholder }: Props) {
   const [value, setValue] = useState('');
   const [deepThinking, setDeepThinking] = useState(false);
 
@@ -36,14 +40,14 @@ function InputBubble({ disabled, onSend, fillValue }: Props) {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div className={inline ? styles.wrapperInline : styles.wrapper}>
       <div className={`${styles.bubble} ${disabled ? styles.disabled : ''}`}>
         <textarea
           className={styles.textarea}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? 'Agent 处理中...' : '向 Agent 提问，回车发送，Shift+Enter 换行'}
+          placeholder={disabled ? (disabledPlaceholder ?? 'Agent 处理中...') : '向 Agent 提问，回车发送，Shift+Enter 换行'}
           disabled={disabled}
           rows={2}
         />

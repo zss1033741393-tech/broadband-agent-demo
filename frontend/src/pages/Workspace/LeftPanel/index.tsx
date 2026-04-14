@@ -11,17 +11,18 @@ interface Props {
 
 function LeftPanel({ prefillMessage }: Props) {
   const leftView = useWorkspaceStore((s) => s.leftView);
-  const openConversation = useWorkspaceStore((s) => s.openConversation);
+  const setLeftView = useWorkspaceStore((s) => s.setLeftView);
+  const setActiveConversation = useWorkspaceStore((s) => s.setActiveConversation);
   const createConversation = useConversationStore((s) => s.create);
 
-  // 从 Dashboard 跳转过来时，自动新建一个对话并切换到 chat 视图
+  // 从 Dashboard 跳转过来时，立即切到 chat 视图（避免闪列表），再异步建会话
   useEffect(() => {
     if (!prefillMessage) return;
+    setLeftView('chat'); // 同步切视图，消除闪烁
     (async () => {
       const conv = await createConversation('新对话');
-      openConversation(conv.id);
+      setActiveConversation(conv.id);
     })();
-  // 只在 prefillMessage 首次有值时触发
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefillMessage]);
 
