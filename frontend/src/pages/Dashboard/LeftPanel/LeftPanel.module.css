@@ -8,7 +8,14 @@
   flex-direction: column;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Sheet 的定位参照容器：撑满 inputArea 以上全部高度 */
+.contentArea {
+  flex: 1;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 
 /* 顶部内容区（StatBar + Banner + EventCards），自然高度，不压缩 */
@@ -17,13 +24,13 @@
   overflow-x: hidden;
 }
 
-/* 对话模式 + 默认模式共用的输入框区 */
+/* 底部输入框区：不参与 Sheet 定位，始终可见 */
 .inputArea {
   flex-shrink: 0;
   padding: 0 16px 16px;
 }
 
-/* 3.2 贴图区 */
+/* 贴图区 */
 .bannerArea {
   padding: 10px 16px;
   flex-shrink: 0;
@@ -58,14 +65,14 @@
   border-radius: 12px 12px 0 0;
   display: flex;
   flex-direction: column;
-  /* 初始状态：完全隐藏在底部以下 */
+  /* 初始：完全隐藏在 contentArea 底部以下 */
   transform: translateY(700px);
   transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
   z-index: 10;
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
 }
 
-/* 收起态：仅露出 50px 标题栏 */
+/* 收起态：仅露出 50px 标题栏，紧贴 inputArea 上方 */
 .sheetCollapsed {
   transform: translateY(650px);
 }
@@ -75,7 +82,7 @@
   transform: translateY(0);
 }
 
-/* 标题栏——固定 50px，收起/展开时均可见 */
+/* ── 标题栏：固定 50px ── */
 .sheetHeader {
   height: 50px;
   flex-shrink: 0;
@@ -93,6 +100,12 @@
   background: #161b22;
 }
 
+.sheetTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .sheetTitle {
   font-size: 13px;
   font-weight: 600;
@@ -100,10 +113,45 @@
   letter-spacing: 0.02em;
 }
 
+/* Loading 三点动效 */
+.loadingDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.loadingDots span {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background: #3b82f6;
+  border-radius: 50%;
+  animation: dotBlink 1.2s infinite ease-in-out;
+}
+
+.loadingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loadingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotBlink {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: scale(0.75);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .sheetArrow {
   font-size: 14px;
-  transition: color 0.15s, transform 0.3s;
   color: #6b7280;
+  transition: color 0.15s;
 }
 
 .sheetArrowDown {
@@ -125,7 +173,7 @@
   overflow: hidden;
 }
 
-/* 底部输入框 */
+/* Sheet 内跟进输入框 */
 .sheetInput {
   flex-shrink: 0;
   padding: 10px 16px 16px;

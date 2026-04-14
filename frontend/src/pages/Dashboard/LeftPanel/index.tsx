@@ -15,8 +15,8 @@ interface Props {
 /**
  * Dashboard 左侧面板：
  * - 默认模式：StatBar + Banner + EventCards + ChatSection + 输入框
- * - 发问后：底部 Sheet 从下方滑入，覆盖 EventCards 及以下内容
- * - 点击 Sheet 标题栏可收起
+ * - 发问后：底部 Sheet 从 contentArea 底部滑入，紧贴输入框上侧
+ * - 点击 Sheet 标题栏可收起/展开
  */
 function DashboardLeftPanel({ onViewReport }: Props) {
   const [convId, setConvId] = useState<string | null>(null);
@@ -61,19 +61,69 @@ function DashboardLeftPanel({ onViewReport }: Props) {
     sendMessage(content, deepThinking);
   };
 
+  // 三态 class
+  const sheetClass = [
+    styles.sheet,
+    messages.length > 0 && !sheetOpen ? styles.sheetCollapsed : '',
+    sheetOpen ? styles.sheetExpanded : '',
+  ].join(' ');
+
   return (
     <aside className={styles.leftPanel}>
-      {/* 默认布局——始终保留在 Sheet 背后 */}
-      <div className={styles.scrollArea}>
-        <StatBar />
-        <div className={styles.bannerArea}>
-          <div className={styles.bannerPlaceholder}>
-            <span className={styles.bannerText}>贴图预留区域</span>
+      {/* contentArea：sheet 的定位参照容器，flex:1 撑满 inputArea 以上的空间 */}
+      <div className={styles.contentArea}>
+        <div className={styles.scrollArea}>
+          <StatBar />
+          <div className={styles.bannerArea}>
+            <div className={styles.bannerPlaceholder}>
+              <span className={styles.bannerText}>贴图预留区域</span>
+            </div>
+          </div>
+          <EventCards />
+        </div>
+        <ChatSection convId={convId} />
+
+        {/* 对话 Sheet */}
+        <div className={sheetClass}>
+          <div
+            className={styles.sheetHeader}
+            onClick={() => setSheetOpen((prev) => !prev)}
+          >
+            <div className={styles.sheetTitleRow}>
+              <span className={styles.sheetTitle}>网络级分析</span>
+              {isStreaming && (
+                <span className={styles.loadingDots}>
+                  <span /><span /><span />
+                </span>
+              )}
+            </div>
+            <span className={`${styles.sheetArrow} ${sheetOpen ? styles.sheetArrowDown : styles.sheetArrowUp}`}>
+              {sheetOpen ? '↓' : '↑'}
+            </span>
+          </div>
+
+          <div className={styles.sheetBody}>
+            <MessageList
+              messages={messages}
+              loading={isLoading}
+              isStreaming={isStreaming}
+              onEditMessage={() => {}}
+              onViewReport={onViewReport}
+            />
+          </div>
+
+          <div className={styles.sheetInput}>
+            <InputBubble
+              inline
+              disabled={!convId || isStreaming}
+              disabledPlaceholder={isStreaming ? 'Agent 处理中...' : ''}
+              onSend={handleSend}
+            />
           </div>
         </div>
-        <EventCards />
       </div>
-      <ChatSection convId={convId} />
+
+      {/* 输入框：始终在面板底部，不参与 sheet 定位 */}
       <div className={styles.inputArea}>
         <InputBubble
           inline
@@ -81,47 +131,6 @@ function DashboardLeftPanel({ onViewReport }: Props) {
           disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
           onSend={handleSend}
         />
-      </div>
-
-      {/* 对话 Sheet：三态 — 隐藏 / 50px 横条 / 700px 展开 */}
-      <div
-        className={[
-          styles.sheet,
-          messages.length > 0 && !sheetOpen ? styles.sheetCollapsed : '',
-          sheetOpen ? styles.sheetExpanded : '',
-        ].join(' ')}
-      >
-        {/* 标题栏：展开时点击收起；收起时点击展开 */}
-        <div
-          className={styles.sheetHeader}
-          onClick={() => setSheetOpen((prev) => !prev)}
-        >
-          <span className={styles.sheetTitle}>网络级分析</span>
-          <span className={`${styles.sheetArrow} ${sheetOpen ? styles.sheetArrowDown : styles.sheetArrowUp}`}>
-            {sheetOpen ? '↓' : '↑'}
-          </span>
-        </div>
-
-        {/* 消息列表 */}
-        <div className={styles.sheetBody}>
-          <MessageList
-            messages={messages}
-            loading={isLoading}
-            isStreaming={isStreaming}
-            onEditMessage={() => {}}
-            onViewReport={onViewReport}
-          />
-        </div>
-
-        {/* 跟进输入框 */}
-        <div className={styles.sheetInput}>
-          <InputBubble
-            inline
-            disabled={!convId || isStreaming}
-            disabledPlaceholder={isStreaming ? 'Agent 处理中...' : ''}
-            onSend={handleSend}
-          />
-        </div>
       </div>
     </aside>
   );
