@@ -6,14 +6,75 @@
       "data": { "delta": "正在生成网络性能分析报告..." }
     },
     {
-      "delayMs": 1200,
+      "delayMs": 800,
       "event": "report",
       "data": {
-        "content": "# 网络性能分析报告\n\n**生成时间：** 2026-04-14  \n**覆盖范围：** 全网核心节点\n\n---\n\n## 执行摘要\n\n本次分析覆盖全网 **14,330** 个告警事件，当前正在处置 14,328 个，已完成处置 2 个。综合评估后，网络整体运行状态处于**中度风险**区间，需重点关注核心骨干链路的拥塞情况。\n\n---\n\n## 关键发现\n\n### 1. 链路利用率异常\n- **核心节点 A–B 链路**利用率持续超过 **85%**，高峰期达 **93%**，存在拥塞风险\n- **节点 C 上行链路**在过去 2 小时内出现 3 次微突发，峰值带宽超出额定容量 **12%**\n- 建议对 A–B 链路进行流量调度或扩容评估\n\n### 2. 时延抖动\n- 区域 D 与区域 E 之间的 RTT 均值为 **42ms**，较基线上升 **18ms**\n- 抖动标准差（Jitter）达 **8.3ms**，超过 SLA 阈值 **5ms**，可能影响实时业务质量\n\n### 3. 丢包情况\n- 全网丢包率整体处于 **0.02%** 以下，在正常范围内\n- 节点 F 的 GigabitEthernet 0/0/1 接口在 03:15–03:22 出现**集中丢包**，峰值丢包率 **0.31%**，已触发告警\n\n---\n\n## 风险等级\n\n| 风险项 | 等级 | 影响范围 |\n|---|---|---|\n| A–B 链路拥塞 | 高 | 骨干流量转发 |\n| 区域 D–E 时延抖动 | 中 | 实时业务 SLA |\n| 节点 F 接口丢包 | 中 | 本地用户接入 |\n| 全网整体丢包 | 低 | 无 |\n\n---\n\n## 处置建议\n\n1. **立即**：对 A–B 链路启动 ECMP 流量均衡，将约 30% 流量分流至备用路径\n2. **24h 内**：对节点 F 接口进行物理层检查，排查光衰或硬件故障\n3. **本周内**：评估区域 D–E 之间是否需要部署 QoS 策略以保障实时业务时延\n4. **下月**：启动 A–B 链路扩容方案，预算需求约 ¥120,000\n\n---\n\n## 数据来源\n\n- 网管系统 SNMP 采集（5 分钟粒度）\n- Netflow 流量分析（1 分钟粒度）\n- 告警系统历史事件库\n\n> 本报告由 AI Agent 自动生成，数据截止时间 2026-04-14 06:00 UTC+8。"
+        "renderType": "insight",
+        "renderData": {
+          "charts": [
+            {
+              "chartId": "insight_query_p3s2",
+              "title": "oltRxPowerHighCnt 最大值分析 (Top10)",
+              "conclusion": "oltRxPowerHighCnt 最大值出现在 72d69aa6-5f36-4e95-961f-501b29e49230（94.50），高出第二名 62.5，z-score=18.03，为核心根因字段，晚间 19:00-22:00 光功率异常加剧。",
+              "echartsOption": {
+                "chart_type": "bar",
+                "title": {
+                  "text": "oltRxPowerHighCnt 最大值分析 (Top10)",
+                  "left": "center",
+                  "textStyle": { "fontSize": 13, "fontWeight": 600 }
+                },
+                "tooltip": { "trigger": "axis", "confine": true, "textStyle": { "fontSize": 11 } },
+                "grid": { "left": "10%", "right": "6%", "bottom": "18%", "top": "16%", "containLabel": false },
+                "xAxis": {
+                  "type": "category",
+                  "data": ["72d69aa6", "ed1ffa4d", "8640b6fe", "d6ed5949", "9a22f060", "cd4af175", "8812629e", "288b6c71", "1c86d285", "5924e7b6"],
+                  "axisLabel": { "fontSize": 10, "rotate": 30 }
+                },
+                "yAxis": {
+                  "type": "value",
+                  "name": "oltRxPowerHighCnt",
+                  "nameTextStyle": { "fontSize": 11 }
+                },
+                "series": [{
+                  "type": "bar",
+                  "barMaxWidth": 40,
+                  "data": [
+                    { "value": 94.5, "itemStyle": { "color": "#e76f6f" } },
+                    { "value": 32,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 28,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 21,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 18,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 15,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 12,   "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 9,    "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 7,    "itemStyle": { "color": "#7eb8da" } },
+                    { "value": 5,    "itemStyle": { "color": "#7eb8da" } }
+                  ]
+                }]
+              },
+              "phaseId": 3,
+              "stepId": 2,
+              "phaseName": "L3-细化根因指标",
+              "stepName": "找出 oltRxPowerHighCnt 最高的 PON 口"
+            }
+          ],
+          "markdownReport": ""
+        }
       }
     },
     {
-      "delayMs": 1300,
+      "delayMs": 1400,
+      "event": "report",
+      "data": {
+        "renderType": "insight",
+        "renderData": {
+          "charts": [],
+          "markdownReport": "# 网络质量数据洞察报告\n\n**生成时间**: 2026-04-14 18:59:59\n\n**分析目标**: 找出 CEI 分数较低的 PON 口并分析根因\n\n---\n\n## 执行摘要\n\n| 项目 | 值 |\n|---|---|\n| 问题 PON 口 | 288b6c71, 1c86d285, 5924e7b6, 2862f00d, d4789fba |\n| 异常类型 | OLT 接收光功率异常 (oltRxPowerHighCnt 高达 94.5 次) |\n| 波及范围 | multi_pon |\n| 高峰时段 | 19:00-22:00 |\n| 根因字段 | oltRxPowerHighCnt, oltRxPowerHigh |\n\n---\n\n## 分析路径\n\n### Phase 1 — L1-定位低分 PON 口\n\n识别 CEI_score 最低的 Top N 个 PON 口，共发现 10 个低分 PON 口，最低分 54.08，z-score=5.36。\n\n### Phase 2 — L2-分维度归因\n\n确认 ODN 维度是主要拖分因素，发现 12 个 PON 口 ODN_score 为 0。\n\n### Phase 3 — L3-细化根因指标\n\n定位 ODN 维度内的具体根因字段，oltRxPowerHighCnt 为核心根因。\n\n[CHART:p3s2]\n\n### Phase 4 — L4-时序验证\n\noltRxPowerHigh 呈上升趋势（R²=0.40），晚间 19:00-22:00 光功率异常开始增多，与投诉高峰吻合。\n\n---\n\n## 处置建议\n\n1. **立即**：对 oltRxPowerHighCnt 异常 PON 口（Top 5）进行光路巡检，排查光衰或跳纤问题\n2. **24h 内**：下发远程光功率检测指令，收集实时光功率数据\n3. **本周内**：评估是否需要对 ODN 链路进行整改，重点关注晚高峰时段\n\n---\n\n*此报告由家宽网络调优智能助手自动生成*"
+        }
+      }
+    },
+    {
+      "delayMs": 400,
       "event": "done",
       "data": { "messageId": "msg_report_001", "thinkingDurationSec": 0 }
     }
