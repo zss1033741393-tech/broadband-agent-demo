@@ -62,7 +62,7 @@
 
 /* ── PDF 纸张感画布：居中、有边框和阴影 ── */
 .page {
-  max-width: 800px;
+  max-width: 960px;
   margin: 0 auto;
   background: #0d1520;
   border: 1px solid #1e2d3d;
