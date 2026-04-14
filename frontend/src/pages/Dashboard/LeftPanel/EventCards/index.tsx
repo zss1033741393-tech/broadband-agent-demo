@@ -45,7 +45,7 @@ function EventCards() {
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>
-        人工带决策事件
+        人工待决策事件
         <span className={styles.badge}>{MOCK_EVENTS.length}</span>
       </div>
       <div className={styles.cardList}>
