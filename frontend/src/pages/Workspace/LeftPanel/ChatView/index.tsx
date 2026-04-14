@@ -4,7 +4,6 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import MessageList from './MessageList';
 import InputBubble from './InputBubble';
-import ReportFloatBtn from '@/components/ReportFloatBtn';
 import styles from './ChatView.module.css';
 
 interface Props {
@@ -79,22 +78,9 @@ function ChatView({ prefillMessage }: Props) {
             }
             setEditDraft(content);
           }}
+          onViewReport={(content, charts) => setActiveReport({ content, charts })}
         />
       </div>
-
-      {/* 报告就绪时的固定悬浮按钮 */}
-      {(() => {
-        const allBlocks = messages.flatMap((m) => m.blocks ?? []);
-        const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
-        if (!reportBlock || reportBlock.type !== 'report_ready') return null;
-        return (
-          <ReportFloatBtn
-            content={reportBlock.content}
-            charts={reportBlock.charts}
-            onView={(content, charts) => setActiveReport({ content, charts })}
-          />
-        );
-      })()}
 
       <InputBubble
         disabled={!activeId}
