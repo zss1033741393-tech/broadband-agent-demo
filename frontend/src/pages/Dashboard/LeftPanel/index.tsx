@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import StatBar from './StatBar';
@@ -40,23 +40,7 @@ function DashboardLeftPanel({ onViewReport }: Props) {
   const updateTitle = useConversationStore((s) => s.updateTitle);
   const setSource = useConversationStore((s) => s.setSource);
 
-  const initiated = useRef(false);
-
-  useEffect(() => {
-    if (initiated.current) return;
-    initiated.current = true;
-    (async () => {
-      try {
-        const conv = await createConversation();
-        setSource(conv.id, 'dashboard');
-        setConvId(conv.id);
-        setActiveConversation(conv.id);
-      } catch {
-        initiated.current = false;
-      }
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convId]);
+  const creating = useRef(false);
 
   const messages = convId ? (messagesByConvId[convId] ?? []) : [];
   const isStreaming = convId ? streamingConvIds.has(convId) : false;
@@ -68,12 +52,31 @@ function DashboardLeftPanel({ onViewReport }: Props) {
   const allBlocks = messages.flatMap((m) => m.blocks ?? []);
   const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
 
-  const handleSend = (content: string, deepThinking: boolean) => {
-    if (!convId || isStreaming) return;
-    setActiveConversation(convId);
+  const handleSend = async (content: string, deepThinking: boolean) => {
+    if (isStreaming || creating.current) return;
+
+    let activeConvId = convId;
+
+    // 懒创建：第一次发消息时才创建 session
+    if (!activeConvId) {
+      creating.current = true;
+      try {
+        const conv = await createConversation();
+        setSource(conv.id, 'dashboard');
+        setConvId(conv.id);
+        setActiveConversation(conv.id);
+        activeConvId = conv.id;
+      } catch {
+        creating.current = false;
+        return;
+      }
+      creating.current = false;
+    }
+
+    setActiveConversation(activeConvId);
     setSheetOpen(true);
     if (messages.length === 0) {
-      updateTitle(convId, content.slice(0, 30));
+      updateTitle(activeConvId, content.slice(0, 30));
     }
     sendMessage(content, deepThinking);
   };
@@ -190,8 +193,8 @@ function DashboardLeftPanel({ onViewReport }: Props) {
       <div className={styles.inputArea}>
         <InputBubble
           inline
-          disabled={!convId || isStreaming}
-          disabledPlaceholder={!convId ? '初始化中...' : 'Agent 处理中...'}
+          disabled={isStreaming}
+          disabledPlaceholder="Agent 处理中..."
           onSend={handleSend}
         />
       </div>
