@@ -3,12 +3,30 @@
   flex-direction: column;
 }
 
+.titleBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 14px;
+  background: #0e1520;
+  border: 1px solid #1e2d3d;
+  border-left: 3px solid #3b82f6;
+  border-radius: 6px;
+}
+
+.titleBar::before {
+  content: '📊';
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
 .title {
-  margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
-  color: #fff;
-  text-align: center;
+  color: #e2e8f0;
+  letter-spacing: 0.02em;
+  flex: 1;
 }
 
 .imageBox {

@@ -11,7 +11,9 @@ interface Props {
 function ImageDisplay({ data }: Props) {
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>{data.title}</h1>
+      <div className={styles.titleBar}>
+        <span className={styles.title}>{data.title}</span>
+      </div>
       <div className={styles.imageBox}>
         <Image
           src={`${import.meta.env.VITE_API_HOST || ''}${data.imageUrl}`}
