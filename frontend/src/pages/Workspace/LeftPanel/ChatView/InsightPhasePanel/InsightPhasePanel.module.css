@@ -92,20 +92,8 @@
   cursor: pointer;
   user-select: none;
   transition: background 0.15s;
+  /* 顶部细线：渐变蓝色强调 */
   position: relative;
-}
-
-/* 折叠状态：标题绝对居中，徽章和 chevron 贴右 */
-.panelHeaderCollapsed {
-  justify-content: flex-end;
-}
-
-.panelHeaderCollapsed .panelTitle {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  flex: unset;
-  text-align: center;
 }
 
 .panelHeaderClickable::before {
