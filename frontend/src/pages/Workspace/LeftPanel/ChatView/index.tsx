@@ -24,8 +24,8 @@ function ChatView({ prefillMessage, lazySource }: Props) {
               id: 'prefill_fixed_reply',
               conversationId: '',
               role: 'assistant',
-              content: '这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回',
-              blocks: [{ type: 'text', content: '这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回' }],
+              content: '当天该用户的保障方案为：\n\nAP补点推荐：\n- WIFI信号仿真：False\n- 应用卡顿仿真：False\n- AP补点推荐：False\n\nCEI体验感知：\n- CEI模型：普通\n- CEI粒度：天级\n- CEI阈值：70分\n\n故障诊断：\n- 诊断场景：上网慢 | 无法上网 | 游戏卡顿 | 直播卡顿\n- 偶发卡顿定界：False\n\n远程优化：\n- 远程优化触发时间：定时\n- 远程WIFI信道切换：True\n- 远程网关重启：True\n- 远程WIFI功率调优：True\n\n差异化承载：\n- 差异化承载：False\n\n请选择：\n1. 需要更新保障目标\n2. 直接编辑方案',
+              blocks: [{ type: 'text', content: '当天该用户的保障方案为：\n\nAP补点推荐：\n- WIFI信号仿真：False\n- 应用卡顿仿真：False\n- AP补点推荐：False\n\nCEI体验感知：\n- CEI模型：普通\n- CEI粒度：天级\n- CEI阈值：70分\n\n故障诊断：\n- 诊断场景：上网慢 | 无法上网 | 游戏卡顿 | 直播卡顿\n- 偶发卡顿定界：False\n\n远程优化：\n- 远程优化触发时间：定时\n- 远程WIFI信道切换：True\n- 远程网关重启：True\n- 远程WIFI功率调优：True\n\n差异化承载：\n- 差异化承载：False\n\n请选择：\n1. 需要更新保障目标\n2. 直接编辑方案' }],
               createdAt: new Date(0).toISOString(),
             },
           ]
