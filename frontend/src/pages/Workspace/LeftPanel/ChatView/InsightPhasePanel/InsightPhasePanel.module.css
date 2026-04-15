@@ -18,12 +18,14 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 350px;
+  /* height 由内容自适应；拖拽时通过 inline style 覆盖 */
   background: #0d1117;
   flex-shrink: 0;
 }
 
 .panelCollapsed {
+  max-height: 42px !important;
   height: 42px !important;
 }
 

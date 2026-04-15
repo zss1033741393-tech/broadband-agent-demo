@@ -147,8 +147,8 @@ function PlanningPhaseRow({ step, isRunning }: { step: Step; isRunning: boolean 
 
 // ── 主组件 ─────────────────────────────────────────────────────
 
-const DEFAULT_HEIGHT = 350;
 const MIN_HEIGHT = 42;
+const MAX_HEIGHT = 350;
 
 function InsightPhasePanel({
   state,
@@ -161,8 +161,10 @@ function InsightPhasePanel({
   onViewReport,
 }: Props) {
   const isPanelMode = onToggle !== undefined;
-  const [panelHeight, setPanelHeight] = useState(DEFAULT_HEIGHT);
+  // null = 内容自适应（max-height: 350px）；number = 拖拽后的显式高度
+  const [panelHeight, setPanelHeight] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef(0);
   const dragStartH = useRef(0);
 
@@ -173,7 +175,8 @@ function InsightPhasePanel({
     e.stopPropagation();
     setDragging(true);
     dragStartY.current = e.clientY;
-    dragStartH.current = panelHeight;
+    // 从 DOM 读取当前实际渲染高度（自适应或已拖拽的值）
+    dragStartH.current = panelRef.current?.offsetHeight ?? (panelHeight ?? MAX_HEIGHT);
 
     const onMouseMove = (ev: MouseEvent) => {
       const delta = ev.clientY - dragStartY.current; // 向下拖 → 变高
@@ -219,12 +222,13 @@ function InsightPhasePanel({
     dragging ? styles.noTransition : '',
   ].filter(Boolean).join(' ');
 
-  const panelStyle = isPanelMode && !collapsed
+  // 拖拽后使用显式 height；否则 CSS max-height: 350px 自适应内容
+  const panelStyle = (isPanelMode && !collapsed && panelHeight !== null)
     ? { height: panelHeight }
     : undefined;
 
   return (
-    <div className={panelClass} style={panelStyle}>
+    <div className={panelClass} style={panelStyle} ref={panelRef}>
       {/* 头部 */}
       <div
         className={`${styles.panelHeader} ${isPanelMode ? styles.panelHeaderClickable : ''}`}
