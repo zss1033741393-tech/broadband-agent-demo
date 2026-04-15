@@ -1,3 +1,5 @@
+export type ConversationSource = 'dashboard' | 'workspace';
+
 export interface Conversation {
   id: string;
   title: string;

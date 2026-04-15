@@ -4,8 +4,17 @@ import { PlusOutlined, DeleteOutlined, MessageOutlined, LoadingOutlined } from '
 import dayjs from 'dayjs';
 import { useConversationStore } from '@/store/conversationStore';
 import { useWorkspaceStore } from '@/store/workspaceStore';
-import type { Conversation } from '@/types/conversation';
+import type { Conversation, ConversationSource } from '@/types/conversation';
 import styles from './ConversationList.module.css';
+
+function SourceBadge({ source }: { source: ConversationSource | undefined }) {
+  if (!source) return null;
+  return (
+    <span className={`${styles.badge} ${source === 'dashboard' ? styles.badgeDashboard : styles.badgeWorkspace}`}>
+      {source === 'dashboard' ? '网络级' : '用户级'}
+    </span>
+  );
+}
 
 function formatTime(iso: string) {
   const d = dayjs(iso);
@@ -15,7 +24,7 @@ function formatTime(iso: string) {
 }
 
 function ConversationList() {
-  const { list, loading, fetch, create, remove } = useConversationStore();
+  const { list, loading, fetch, create, remove, sources } = useConversationStore();
   const openConversation = useWorkspaceStore((s) => s.openConversation);
   const streamingConvIds = useWorkspaceStore((s) => s.streamingConvIds);
   const [creating, setCreating] = useState(false);
@@ -93,6 +102,7 @@ function ConversationList() {
                     : <MessageOutlined className={styles.itemIcon} />
                   }
                   <span>{conv.title}</span>
+                  <SourceBadge source={sources[conv.id]} />
                 </div>
                 <span className={styles.itemTime}>{formatTime(conv.updatedAt)}</span>
               </div>
