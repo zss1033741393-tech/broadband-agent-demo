@@ -24,8 +24,8 @@ function ChatView({ prefillMessage, lazySource }: Props) {
               id: 'prefill_fixed_reply',
               conversationId: '',
               role: 'assistant',
-              content: '这是一条固定信息返回',
-              blocks: [{ type: 'text', content: '这是一条固定信息返回' }],
+              content: '这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回',
+              blocks: [{ type: 'text', content: '这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回\n\n这是一条固定信息返回' }],
               createdAt: new Date(0).toISOString(),
             },
           ]
