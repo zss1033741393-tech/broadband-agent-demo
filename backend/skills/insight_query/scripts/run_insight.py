@@ -143,12 +143,71 @@ def _resolve_data_path(table_level: str) -> str:
     return "mock"
 
 
+def _repair_collapsed_query_config(payload: dict) -> dict:
+    """修复 json_repair 结构崩塌：dimensions 内混入了 breakdown/measures/payload 字段的情况。
+
+    复现模式：
+        json.loads 失败 → json_repair 把 [[{filter}]] 之后的所有字段
+        折叠为 dimensions 数组的元素。
+
+    修复后：
+        query_config.dimensions = [[{实际过滤条件}]]
+        query_config.breakdown  = {...}   ← 从 dimensions 中还原
+        query_config.measures   = [...]   ← 从 dimensions 中还原
+        payload.table_level 等  ← 从 dimensions 中还原
+    """
+    import logging as _logging
+    _log = _logging.getLogger(__name__)
+
+    query_config = payload.get("query_config")
+    if not isinstance(query_config, dict):
+        return payload
+
+    dims = query_config.get("dimensions", [])
+    if not isinstance(dims, list):
+        return payload
+
+    # 症状检测：dimensions 内部存在非 list 的 dict 元素，说明发生了折叠
+    if not any(isinstance(d, dict) for d in dims):
+        return payload
+
+    _log.warning(
+        "[run_insight] 检测到 json_repair 结构崩塌 — dimensions 内存在 dict 元素，开始还原。"
+        "原始 dimensions 长度=%d", len(dims)
+    )
+
+    _QUERY_CONFIG_KEYS = {"breakdown", "measures"}
+    _PAYLOAD_LEVEL_KEYS = {
+        "table_level", "phase_id", "step_id",
+        "phase_name", "step_name", "data_path", "insight_type",
+    }
+
+    actual_dims: list = []
+    for item in dims:
+        if isinstance(item, list):
+            actual_dims.append(item)
+        elif isinstance(item, dict):
+            for k, v in item.items():
+                if k in _QUERY_CONFIG_KEYS:
+                    if not query_config.get(k):
+                        query_config[k] = v
+                elif k in _PAYLOAD_LEVEL_KEYS:
+                    if not payload.get(k):
+                        payload[k] = v
+
+    query_config["dimensions"] = actual_dims if actual_dims else [[]]
+    return payload
+
+
 def run(payload_json: str) -> str:
     """主入口：解析 payload → 查询 → 执行洞察 → 序列化。"""
     try:
         payload: dict[str, Any] = _safe_parse_json(payload_json)
     except json.JSONDecodeError as exc:
         return _err(f"payload JSON 解析失败: {exc}")
+
+    # json_repair 把其他字段折叠进 dimensions 时，还原到正确位置
+    payload = _repair_collapsed_query_config(payload)
 
     insight_type = payload.get("insight_type")
     if not insight_type:
@@ -162,13 +221,42 @@ def run(payload_json: str) -> str:
     if table_level not in ("day", "minute"):
         return _err(f"table_level 必须是 day/minute，收到: {table_level}")
 
+    # 分钟表必须带 dimensions 过滤，禁止全量扫描
+    if table_level == "minute":
+        dims = query_config.get("dimensions", [[]])
+        is_empty_filter = (
+            not dims
+            or dims == [[]]
+            or all(not group for group in dims)
+        )
+        if is_empty_filter:
+            return _err(
+                "分钟表查询必须在 dimensions 中指定 portUuid 或 gatewayMac 过滤条件，"
+                "禁止全量扫描（数据量过大会导致上下文溢出）。"
+                "请从前序 Phase 的 found_entities 中取实体值后重新调用。"
+            )
+
     data_path = payload.get("data_path") or _resolve_data_path(table_level)
+
+    # 天表 Phase >= 2 时若未加过滤，追加 warning 提醒使用 found_entities
+    _day_no_filter_warning: list[str] = []
+    if table_level == "day":
+        phase_id = payload.get("phase_id") or 1
+        dims = query_config.get("dimensions", [[]])
+        is_empty_filter = not dims or dims == [[]] or all(not g for g in dims)
+        if is_empty_filter and phase_id >= 2:
+            _day_no_filter_warning = [
+                f"Phase {phase_id} 天表查询未加 dimensions 过滤，建议使用前序 Phase "
+                "的 found_entities（portUuid/gatewayMac）缩小数据范围，避免全量扫描。"
+            ]
 
     # 1. 修复三元组（query_fixer 可能替换字段名 / breakdown 名 / measures 名）
     try:
         fixed_config, fix_warnings = cic.fix_query_config(query_config, table_level=table_level)
     except Exception as exc:
         return _err(f"fix_query_config 失败: {type(exc).__name__}: {exc}")
+
+    fix_warnings = _day_no_filter_warning + fix_warnings
 
     # 兜底：fixer 意外清空 measures 时还原为原始值，确保 SQL 带聚合列
     if not fixed_config.get("measures"):

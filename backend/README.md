@@ -17,7 +17,7 @@ OrchestratorTeam (leader, coordinate 模式)
   ├─ PlanningAgent            (goal_parsing + plan_design + plan_review)
   ├─ InsightAgent             (insight_plan + insight_decompose + insight_query
   ���                            + insight_nl2code + insight_reflect + insight_report)
-  ├─ ProvisioningWifiAgent    (wifi_simulation)              ← 单 Skill 内部 4 步
+  ├─ ProvisioningWifiAgent    (wifi_simulation)              ← 单 Skill 内部 2 能力 (RSSI 热力图 + 卡顿率栅格) ± AP 补点对比
   ├─ ProvisioningDeliveryAgent (experience_assurance)
   └─ ProvisioningCeiChainAgent (cei_pipeline + cei_score_query
                                 + fault_diagnosis + remote_optimization)
@@ -32,7 +32,7 @@ OrchestratorTeam (leader, coordinate 模式)
 - **`cei_pipeline / cei_score_query / fault_diagnosis / remote_optimization / experience_assurance`**：Tool Wrapper 范式 — 封装 FAE / FAN 平台真实接口，CLI args 驱动，依赖 `fae_poc/` 共享的 NCELogin + config.ini（`fault_diagnosis` 脚本内部自驱 start+poll+query 三阶段，Agent 仅感知一次 tool call；`experience_assurance` 由 Provisioning 层完成"业务字段 → UUID 参数"映射，映射表见 `experience_assurance/references/assurance_parameters.md`）
 - **`goal_parsing / plan_review`**：Inversion + Reviewer — 有状态/确定性任务保留脚本
 - **`insight_*`**（6 个 Skill）：Pipeline — Plan → [Decompose → Execute → Reflect] × N Phase → Report 驱动，接入 `ce_insight_core` 真实计算内核（三元组查询 + 12 种洞察函数 + NL2Code 沙箱）
-- **`wifi_simulation`**：Pipeline — 单脚本内部 3+1 步（户型图处理 → 信号强度仿真 → 网络性能仿真，选点可选）
+- **`wifi_simulation`**：Pipeline + Generator — 接入自包含的 `home_wifi_engine`，按 `compare` 开关分派 basic（RSSI 热力图 + 卡顿率栅格）或 compare（AP 补点前后对比图 + 4 份 JSON 矩阵）模式，stdout 为单行结构化 JSON
 
 ## 技术栈
 
@@ -115,7 +115,7 @@ $env:NO_PROXY="localhost,127.0.0.1"
 │   ├── fault_diagnosis/    # 故障诊断 (Tool Wrapper, 对接 FAE 真实接口, 内部 start+poll+query)
 │   ├── remote_optimization/# 远程优化动作 (Tool Wrapper, 对接 FAE 真实接口)
 │   ├── experience_assurance/ # 差异化承载 (Tool Wrapper, 对接 FAN 网络切片服务 app-flow 接口)
-│   ├── wifi_simulation/    # WIFI 4 步仿真
+│   ├── wifi_simulation/    # WIFI 仿真 (home_wifi_engine 自包含: RSSI 热力图 + 卡顿率栅格 ± AP 补点对比)
 │   ├── insight_plan/       # 洞察规划 (Instructional, MacroPlan 生成)
 │   ├── insight_decompose/  # Phase 分解 (Tool Wrapper, list_schema.py + 参考文件)
 │   ├── insight_query/      # 洞察执行 (Tool Wrapper, run_insight.py + run_query.py)

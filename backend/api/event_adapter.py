@@ -11,6 +11,11 @@ M5 说明：InsightAgent assistant 文本中的 <!--event:xxx--> 阶段标记
          由后端原样透传为 `thinking(stepId="insight")` 事件，
          不在后端做结构化解析——前端自行识别 marker。
          图表/报告仍由脚本 stdout 生成独立 `render` 事件（渐进式）。
+M6 追加：wifi_simulation 单事件聚合 —— 2 PNG + 4 JSON 合并为一条
+         wifi_result 事件（独立事件类型，非 render），每项图/JSON 均带显式
+         kind/phase 标签，供前端直接分类渲染。
+M7 追加：experience_assurance 单事件聚合 —— 体验保障配置结果（14 字段）
+         合并为一条 experience_assurance_result 事件，供前端渲染保障配置表格。
 """
 
 from __future__ import annotations
@@ -485,6 +490,7 @@ async def _adapt_body(
                     "stderr": stderr[:500],
                     "completedAt": completed_at,
                     "durationMs": duration_ms,
+                    "error": _is_error_result(result_raw),
                 }
                 if step_for_evt is not None:
                     step_for_evt.sub_steps.append(sub)
@@ -513,12 +519,19 @@ async def _adapt_body(
                         message_id=user_msg_id,
                     )
 
-                # wifi_simulation 单独通道：解析 image_paths，拷贝到 data/images/
-                # 每张图发一个独立的 renderType="image" 事件（按 docs/sse-interface-spec.md:216）
+                # wifi_simulation 单独通道：解析 image_paths + data_paths，
+                # 聚合成 **单条** wifi_result 事件（2 PNG + 4 JSON，每项含 kind/phase）。
                 if skill_name == "wifi_simulation":
-                    for rb in _emit_wifi_image_renders(agg.message_id, result_raw):
+                    for rb in _emit_wifi_simulation_render(agg.message_id, result_raw):
                         agg.render_blocks.append(rb)
-                        yield format_sse("render", rb), agg
+                        yield format_sse("wifi_result", rb), agg
+
+                # experience_assurance 单独通道：解析 result 字段，
+                # 聚合成单条 experience_assurance_result 事件，供前端渲染保障配置表格。
+                if skill_name == "experience_assurance":
+                    for rb in _emit_experience_assurance_result(result_raw):
+                        agg.render_blocks.append(rb)
+                        yield format_sse("experience_assurance_result", rb), agg
 
                 # insight 场景：每次 insight_query / insight_report 完成时，同时
                 # 下发 `report` 和 `render` 两条 SSE 事件，payload 完全一致。
@@ -611,6 +624,36 @@ async def _adapt_body(
         for _mid in list(member_text_buffers.keys()):
             _flush_member_text(_mid)
 
+    # ── 兜底：清理 ToolCallStarted 无对应 ToolCallCompleted 的 pending 调用 ──────
+    # 场景：LLM 传 args 为字符串时 agno pydantic 校验失败，可能不发 ToolCallCompleted；
+    # 此处将残留 pending 条目补充为 error sub_step，保证历史回放数据完整。
+    for _key, _args_list in list(skill_start_args.items()):
+        _agent_id_raw, _sn = _key.rsplit(":", 1)
+        _step_agg = steps_by_id.get(_agent_id_raw)
+        _t_list = skill_start_times.get(_key, [])
+        for _call_info in _args_list:
+            _t0 = _t_list.pop(0) if _t_list else None
+            _dur = int((time.monotonic() - _t0) * 1000) if _t0 else 0
+            _step_id = _step_agg.step_id if _step_agg else "unknown"
+            _sub = {
+                "subStepId": f"{_step_id}_{_sn}",
+                "name": _sn,
+                "scriptPath": _call_info.get("scriptPath", ""),
+                "callArgs": _call_info.get("callArgs", []),
+                "stdout": "",
+                "stderr": "工具调用未完成（args 类型错误或调用中断）",
+                "completedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "durationMs": _dur,
+                "error": True,
+            }
+            if _step_agg is not None:
+                _step_agg.sub_steps.append(_sub)
+                _step_agg.items.append({"type": "sub_step", "data": _sub})
+            yield format_sse("sub_step", {"stepId": _step_id, **_sub}), agg
+            api_log.warning(f"pending tool call 兜底: key={_key!r} scriptPath={_sub['scriptPath']!r}")
+    skill_start_args.clear()
+    skill_start_times.clear()
+
     # 兜底 done
     if agg.status == "streaming":
         if thinking_start and thinking_end:
@@ -638,6 +681,28 @@ def _extract_stdout_stderr(raw: Any) -> tuple[str, str]:
     stdout = str(parsed.get("stdout", "")).strip()
     stderr = str(parsed.get("stderr", "")).strip()
     return stdout, stderr
+
+
+def _is_error_result(raw: Any) -> bool:
+    """判断 tool result 是否为错误结果。
+
+    两种情况视为错误：
+    1. raw 不是合法 JSON（agno pydantic 校验失败时返回 traceback 字符串）
+    2. raw 是 JSON 且顶层 status == "error"
+    """
+    import json as _json
+    if isinstance(raw, dict):
+        return raw.get("status") == "error"
+    if isinstance(raw, str):
+        try:
+            parsed = _json.loads(raw)
+            if isinstance(parsed, dict):
+                return parsed.get("status") == "error"
+            return False
+        except Exception:
+            # 非 JSON → 通常是 pydantic / 系统级错误文本
+            return True
+    return False
 
 
 def _parse_stdout(raw: Any) -> Any:
@@ -744,39 +809,105 @@ def _build_insight_conclusion(description: Any, significance: float) -> str:
     return "；".join(parts) if parts else "洞察分析完成"
 
 
-# ─── wifi_simulation 图片持久化 ───────────────────────────────────────────────
+# ─── experience_assurance：单事件聚合（保障配置结果） ──────────────────────────
 
-def _emit_wifi_image_renders(msg_id: str, result_raw: Any) -> list[dict]:
-    """从 wifi_simulation 的 stdout 解析 image_paths，拷贝到 data/images/ 并
-    返回 render_blocks 列表（每张图一个 renderType="image" 条目）。
+def _emit_experience_assurance_result(result_raw: Any) -> list[dict]:
+    """把 experience_assurance 的 stdout 聚合成 **单条** experience_assurance_result 事件。
 
-    命名策略：`{msg_id}_{idx}.{ext}`，便于历史回看按消息 ID 反查 / 清理。
+    载荷内容：
+      - businessType / applicationType / application  ← 任务参数元数据
+      - taskData  ← result 字段完整透传（14 个 FAN 协议字段，前端按需渲染为表格）
+      - isMock    ← 标记是否为 mock 数据，前端可据此显示提示
 
-    容错：源文件不存在或拷贝失败时打 warning 跳过，不阻断主流程。
-    skill 脚本自己的工作区（skills/wifi_simulation/data/run_<uuid>/）可随时清理，
-    本函数拷贝到 `data/images/` 的副本是持久化副本。
+    容错：stdout 解析失败或 status==error 时返回空 list，不阻断其它事件。
     """
     parsed = _parse_stdout(result_raw)
     if not isinstance(parsed, dict):
         return []
-    images = parsed.get("image_paths") or []
-    if not isinstance(images, list) or not images:
+    if parsed.get("status") == "error":
+        return []
+
+    task_data = parsed.get("result")
+    if not isinstance(task_data, dict) or not task_data:
+        return []
+
+    render_data: dict[str, Any] = {
+        "businessType": parsed.get("business_type") or "",
+        "applicationType": parsed.get("application_type") or "",
+        "application": parsed.get("application") or "",
+        "isMock": bool(parsed.get("is_mock", True)),
+        "taskData": task_data,
+    }
+    logger.bind(channel="api").info(
+        f"experience_assurance result 聚合 taskId={task_data.get('taskId', '')} "
+        f"isMock={render_data['isMock']}"
+    )
+    return [{"renderType": "experience_assurance", "renderData": render_data}]
+
+
+# ─── wifi_simulation：单事件聚合（2 PNG + 0/4 JSON 内联） ─────────────────────
+
+def _emit_wifi_simulation_render(msg_id: str, result_raw: Any) -> list[dict]:
+    """把 wifi_simulation 的 stdout 聚合成 **单条** wifi_result 事件。
+
+    载荷内容：
+      - images[]：PNG 拷贝到 `data/images/` 后对外给 `/api/images/{imageId}`，
+        每项含显式 kind（"rssi" / "stall"）
+      - dataFiles[]：JSON 数据文件读到内存，整份 JSON 内联在 dataFiles[].content，
+        每项含显式 kind（"rssi" / "stall"）和 phase（"before" / "after"）
+        （随 messages.render_blocks 落盘，历史回放直接还原；不新增路由）
+      - stats / summary / preset / gridSize / apCount / targetApCount 元数据原样透传
+
+    容错：任何单项（某张 PNG / 某份 JSON）失败不阻断其它；全失败时返回空 list。
+    """
+    parsed = _parse_stdout(result_raw)
+    if not isinstance(parsed, dict):
         return []
 
     api_log = logger.bind(channel="api")
-    render_blocks: list[dict] = []
 
+    images = _collect_wifi_images(msg_id, parsed.get("image_paths") or [], api_log)
+    data_files = _collect_wifi_data_files(msg_id, parsed.get("data_paths") or [], api_log)
+
+    # 无任何图也无数据：不发事件（skill 可能是 error 路径）
+    if not images and not data_files:
+        return []
+
+    render_data: dict[str, Any] = {
+        "preset": parsed.get("preset") or "",
+        "gridSize": parsed.get("grid_size"),
+        "apCount": parsed.get("ap_count"),
+        "targetApCount": parsed.get("target_ap_count"),
+        "summary": parsed.get("summary") or "",
+        "stats": parsed.get("stats") or {},
+        "images": images,
+        "dataFiles": data_files,
+    }
+    api_log.info(
+        f"wifi_simulation wifi_result 聚合 "
+        f"images={len(images)} dataFiles={len(data_files)}"
+    )
+    # render_blocks 存储格式须含 renderType（repository._row_to_message 按此字段分类）
+    return [{"renderType": "wifi_simulation", "renderData": render_data}]
+
+
+def _collect_wifi_images(msg_id: str, items: Any, api_log: Any) -> list[dict]:
+    """把 image_paths 中每张 PNG 拷贝到 data/images/，返回前端可消费的 image 列表。"""
+    if not isinstance(items, list) or not items:
+        return []
     try:
         _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     except Exception:
         api_log.exception(f"创建图片持久化目录失败: {_IMAGES_DIR}")
         return []
 
-    for idx, item in enumerate(images):
+    out: list[dict] = []
+    for idx, item in enumerate(items):
         if not isinstance(item, dict):
             continue
         src = item.get("path") or ""
         label = item.get("label") or f"图片 {idx + 1}"
+        kind = item.get("kind") or ""
         if not src:
             continue
 
@@ -786,24 +917,69 @@ def _emit_wifi_image_renders(msg_id: str, result_raw: Any) -> list[dict]:
             continue
 
         ext = (src_path.suffix.lstrip(".") or "png").lower()
-        image_id = f"{msg_id}_{idx}"
+        image_id = f"{msg_id}_img_{idx}"
         dest = _IMAGES_DIR / f"{image_id}.{ext}"
-
         try:
             shutil.copy2(src_path, dest)
         except Exception:
             api_log.exception(f"拷贝 wifi image 失败: {src} → {dest}")
             continue
 
-        render_blocks.append({
-            "renderType": "image",
-            "renderData": {
-                "imageId": image_id,
-                "imageUrl": f"/api/images/{image_id}",
-                "title": label,
-                "conclusion": "",
-            },
+        out.append({
+            "imageId": image_id,
+            "imageUrl": f"/api/images/{image_id}",
+            "title": label,
+            "kind": kind,
         })
-        api_log.info(f"wifi image 持久化 → {dest.name} (label={label!r})")
+        api_log.info(f"wifi image 持久化 → {dest.name} (label={label!r} kind={kind!r})")
+    return out
 
-    return render_blocks
+
+def _collect_wifi_data_files(msg_id: str, items: Any, api_log: Any) -> list[dict]:
+    """读取 data_paths 中每份 JSON 矩阵文件，整份内联到 dataFiles[].content。
+
+    大小估算：40×40 grid ≈ 每份 ~25KB，4 份 ~100KB；通过 SSE + 数据库 render_blocks
+    落盘可接受。前端首屏建议仅渲染 stats/summary；展开/下载时再消费 content.data。
+    """
+    if not isinstance(items, list) or not items:
+        return []
+    out: list[dict] = []
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        src = item.get("path") or ""
+        label = item.get("label") or f"数据文件 {idx + 1}"
+        kind = item.get("kind") or ""
+        phase = item.get("phase") or ""
+        if not src:
+            continue
+
+        src_path = Path(src)
+        if not src_path.exists():
+            api_log.warning(f"wifi data 源文件不存在: {src}")
+            continue
+
+        try:
+            with open(src_path, "r", encoding="utf-8") as f:
+                content = _json.load(f)
+        except Exception:
+            api_log.exception(f"解析 wifi data JSON 失败: {src}")
+            continue
+
+        # 从 JSON 内部字段抽摘要，避免前端首屏消费大矩阵
+        stats: dict[str, Any] = {}
+        if isinstance(content, dict):
+            for k in ("mean_rssi", "worst_rssi", "mean_stall_rate", "max_stall_rate", "shape"):
+                if k in content:
+                    stats[k] = content[k]
+
+        out.append({
+            "fileId": f"{msg_id}_data_{idx}",
+            "title": label,
+            "kind": kind,
+            "phase": phase,
+            "stats": stats,
+            "content": content,
+        })
+        api_log.info(f"wifi data 内联 → {src_path.name} (label={label!r} phase={phase!r})")
+    return out

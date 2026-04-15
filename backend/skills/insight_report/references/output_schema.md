@@ -13,7 +13,7 @@
   "title": "网络质量数据洞察报告",
   "goal": "<MacroPlan.goal>",
   "direct_answer": "1-2 句直接回答用户问题的核心结论",
-  "key_findings": ["🔴 最严重问题：...", "📊 关键指标：...", "📅 问题时段：...", "🔗 因果链路：..."],
+  "key_findings": ["1. 最严重问题：...", "2. 关键指标：...", "3. 问题时段：...", "4. 因果链路：..."],
   "root_cause_narrative": "串联各 Phase 发现的根因叙述（2-4 句）",
   "impact_summary": "影响范围与程度的量化描述",
   "phases": [
@@ -29,7 +29,7 @@
           "significance": 0.73,
           "description": "CEI_score 最小值出现在 288b6c71-...",
           "found_entities": {"portUuid": ["288b6c71-...", "1c86d285-..."]},
-          "chart_configs": { ... }
+          "has_chart": true
         }
       ],
       "reflection": {"choice": "A", "reason": "..."}
