@@ -258,7 +258,7 @@ function InsightPhasePanel({
 
         {collapsed ? (
           /* ── 折叠：居中横排标题 ── */
-          <div className={`${styles.panelHeader} ${styles.panelHeaderClickable}`} onClick={onToggle}>
+          <div className={`${styles.panelHeader} ${styles.panelHeaderClickable} ${styles.panelHeaderCollapsed}`} onClick={onToggle}>
             <span className={styles.panelTitle}>进度跟踪</span>
             <span className={styles.panelProgress}>{doneCount} / {totalCount}</span>
             <span className={`${styles.collapseChevron} ${styles.chevronCollapsed}`} />
