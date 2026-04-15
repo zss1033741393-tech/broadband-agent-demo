@@ -1,45 +1,54 @@
 {
-  "description": "模拟一次「图像展示」场景的 SSE 流式响应。前端 mock 层按顺序读取 events，按 delayMs 间隔依次 dispatch 给 useSSE 回调。",
+  "description": "模拟一次「WiFi 补点仿真」场景的 SSE 流式响应，使用 wifi_result 事件推送图片。",
   "request": {
     "method": "POST",
     "path": "/conversations/conv_001/messages",
     "body": {
-      "content": "帮我看下核心路由器到汇聚 B 这条链路最近是不是有丢包，需要的话出一张拓扑图。",
+      "content": "帮我对大平层做一次 WiFi 补点仿真分析，当前只有 1 个 AP，目标 3 个 AP。",
       "deepThinking": false
     }
   },
   "events": [
-    { "delayMs": 0,    "event": "thinking", "data": { "delta": "用户关心的是 A↔B 这条核心链路。" } },
-    { "delayMs": 200,  "event": "thinking", "data": { "delta": "先拉最近 30 分钟的接口计数器，" } },
-    { "delayMs": 400,  "event": "thinking", "data": { "delta": "再做一次端到端 ping/traceroute。" } },
+    { "delayMs": 0,    "event": "thinking", "data": { "delta": "用户需要对大平层做 WiFi 补点仿真。" } },
+    { "delayMs": 200,  "event": "thinking", "data": { "delta": "当前 1 AP → 目标 3 AP，需计算 RSSI 和卡顿率变化。" } },
 
-    { "delayMs": 600,  "event": "step_start", "data": { "stepId": "step_001", "title": "扫描相关网络设备状态" } },
-    { "delayMs": 800,  "event": "sub_step",   "data": { "stepId": "step_001", "subStepId": "sub_001", "name": "Ping 核心路由器 A", "result": "延迟 2ms，状态正常", "completedAt": "2026-04-08T09:12:18Z", "durationMs": 312 } },
-    { "delayMs": 1100, "event": "sub_step",   "data": { "stepId": "step_001", "subStepId": "sub_002", "name": "Ping 汇聚交换机 B", "result": "延迟 48ms，丢包 15%", "completedAt": "2026-04-08T09:12:21Z", "durationMs": 2840 } },
-    { "delayMs": 1400, "event": "sub_step",   "data": { "stepId": "step_001", "subStepId": "sub_003", "name": "拉取 A 接口 Gi0/0/2 计数器", "result": "CRC 错误 5 分钟内 +1289", "completedAt": "2026-04-08T09:12:24Z", "durationMs": 980 } },
-    { "delayMs": 1600, "event": "step_end",   "data": { "stepId": "step_001" } },
+    { "delayMs": 400,  "event": "step_start", "data": { "stepId": "step_001", "title": "扫描当前 AP 分布" } },
+    { "delayMs": 600,  "event": "sub_step",   "data": { "stepId": "step_001", "subStepId": "sub_001", "name": "读取 AP 位置数据", "completedAt": "2026-04-08T09:12:18Z", "durationMs": 312 } },
+    { "delayMs": 900,  "event": "sub_step",   "data": { "stepId": "step_001", "subStepId": "sub_002", "name": "生成热力图底图", "completedAt": "2026-04-08T09:12:21Z", "durationMs": 480 } },
+    { "delayMs": 1100, "event": "step_end",   "data": { "stepId": "step_001" } },
 
-    { "delayMs": 1800, "event": "step_start", "data": { "stepId": "step_002", "title": "生成链路拓扑图" } },
-    { "delayMs": 2000, "event": "sub_step",   "data": { "stepId": "step_002", "subStepId": "sub_004", "name": "构建拓扑数据", "result": "包含 12 个节点 / 18 条链路", "completedAt": "2026-04-08T09:12:28Z", "durationMs": 1450 } },
-    { "delayMs": 2300, "event": "sub_step",   "data": { "stepId": "step_002", "subStepId": "sub_005", "name": "渲染并标注故障段", "result": "已生成 PNG", "completedAt": "2026-04-08T09:12:30Z", "durationMs": 1820 } },
-    { "delayMs": 2500, "event": "step_end",   "data": { "stepId": "step_002" } },
+    { "delayMs": 1300, "event": "step_start", "data": { "stepId": "step_002", "title": "运行补点仿真算法" } },
+    { "delayMs": 1500, "event": "sub_step",   "data": { "stepId": "step_002", "subStepId": "sub_003", "name": "计算最优 AP 位置", "completedAt": "2026-04-08T09:12:28Z", "durationMs": 1450 } },
+    { "delayMs": 1800, "event": "sub_step",   "data": { "stepId": "step_002", "subStepId": "sub_004", "name": "渲染 RSSI / 卡顿率对比图", "completedAt": "2026-04-08T09:12:30Z", "durationMs": 820 } },
+    { "delayMs": 2000, "event": "step_end",   "data": { "stepId": "step_002" } },
 
-    { "delayMs": 2700, "event": "render", "data": {
-        "renderType": "image",
+    { "delayMs": 2200, "event": "wifi_result", "data": {
+        "renderType": "wifi_simulation",
         "renderData": {
-          "imageId": "img_topo_001",
-          "imageUrl": "/api/images/img_topo_001",
-          "title": "全网链路拓扑图（已标注故障段）",
-          "conclusion": "检测到核心节点 **A → 汇聚 B** 链路丢包率 **15%**，建议立即切换备用路由 A → C → B，并现场确认 Gi0/0/2 光模块。"
+          "preset": "大平层",
+          "gridSize": 40,
+          "apCount": 1,
+          "targetApCount": 3,
+          "summary": "大平层 1AP→3AP 补点优化完成；平均 RSSI 由 -72.1dBm 提升至 -55.3dBm，平均卡顿率由 18.2% 降至 2.1%。",
+          "stats": {
+            "rssi_before":  { "mean_rssi": -72.1, "worst_rssi": -90.0, "shape": [42, 42] },
+            "rssi_after":   { "mean_rssi": -55.3, "worst_rssi": -78.5, "shape": [42, 42] },
+            "stall_before": { "mean_stall_rate": 0.182, "max_stall_rate": 0.564, "shape": [42, 42] },
+            "stall_after":  { "mean_stall_rate": 0.021, "max_stall_rate": 0.097, "shape": [42, 42] }
+          },
+          "images": [
+            { "imageId": "sim001_img_0", "imageUrl": "/api/images/sim001_img_0", "title": "RSSI 对比图（补点前/后）", "kind": "rssi" },
+            { "imageId": "sim001_img_1", "imageUrl": "/api/images/sim001_img_1", "title": "卡顿率对比图（补点前/后）", "kind": "stall" }
+          ],
+          "dataFiles": []
         }
       }
     },
 
-    { "delayMs": 2900, "event": "text", "data": { "delta": "## 排查结论\n\n核心节点 **A → 汇聚 B** 链路在过去 30 分钟内出现 " } },
-    { "delayMs": 3100, "event": "text", "data": { "delta": "**15% 丢包**，主因是 Gi0/0/2 接口 CRC 错误持续上升。\n\n" } },
-    { "delayMs": 3300, "event": "text", "data": { "delta": "**建议动作**：\n1. 临时切换至备用路由 A → C → B\n" } },
-    { "delayMs": 3500, "event": "text", "data": { "delta": "2. 现场确认 Gi0/0/2 光模块/光纤\n3. 切换后持续观察 10 分钟丢包率" } },
+    { "delayMs": 2400, "event": "text", "data": { "delta": "## 仿真结论\n\n大平层补点优化（1AP → 3AP）完成：\n\n" } },
+    { "delayMs": 2600, "event": "text", "data": { "delta": "- **平均 RSSI**：-72.1 dBm → **-55.3 dBm**（提升 16.8 dB）\n" } },
+    { "delayMs": 2800, "event": "text", "data": { "delta": "- **平均卡顿率**：18.2% → **2.1%**（降低 88%）\n" } },
 
-    { "delayMs": 3700, "event": "done", "data": { "messageId": "msg_002", "thinkingDurationSec": 12 } }
+    { "delayMs": 3000, "event": "done", "data": { "messageId": "msg_wifi_001", "thinkingDurationSec": 8 } }
   ]
 }

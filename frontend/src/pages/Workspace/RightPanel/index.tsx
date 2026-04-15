@@ -13,7 +13,7 @@ import type { InsightState } from '@/types/insight';
 const SOLO_THRESHOLD = 0.70;
 
 function computeWidth(block: RenderBlock): number {
-  if (block.renderType === 'image') return 0.5;
+  if (block.renderType === 'image') return 1.0; // 一图一行，始终全宽
   const chart = block.renderData.charts[0];
   if (!chart) return 0.5;
   const series = (chart.echartsOption.series ?? []) as { type?: string; data?: unknown[] }[];

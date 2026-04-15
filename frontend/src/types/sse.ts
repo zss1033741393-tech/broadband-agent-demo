@@ -42,6 +42,27 @@ export interface ReportEvent {
   };
 }
 
+export interface WifiImage {
+  imageId: string;
+  imageUrl: string;
+  title: string;
+  kind: string;
+}
+
+export interface WifiResultEvent {
+  renderType: 'wifi_simulation';
+  renderData: {
+    preset: string;
+    gridSize: number;
+    apCount: number;
+    targetApCount: number;
+    summary: string;
+    stats: Record<string, unknown>;
+    images: WifiImage[];
+    dataFiles: unknown[];
+  };
+}
+
 export type SseEventName =
   | 'thinking'
   | 'text'
@@ -49,6 +70,7 @@ export type SseEventName =
   | 'sub_step'
   | 'step_end'
   | 'render'
+  | 'wifi_result'
   | 'report'
   | 'done'
   | 'error';

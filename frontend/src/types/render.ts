@@ -4,7 +4,8 @@ export interface ImageRenderData {
   imageId: string;
   imageUrl: string;
   title: string;
-  conclusion: string;
+  kind?: string;
+  conclusion?: string;
 }
 
 export interface ChartItem {

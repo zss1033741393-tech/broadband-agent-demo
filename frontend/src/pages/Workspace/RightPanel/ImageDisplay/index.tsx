@@ -23,9 +23,11 @@ function ImageDisplay({ data }: Props) {
           fallback="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48cmVjdCBmaWxsPSIjMTYxQjIyIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjOWNhM2FmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj7lm77niYflip/lhYU8L3RleHQ+PC9zdmc+"
         />
       </div>
-      <div className={styles.conclusion}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.conclusion}</ReactMarkdown>
-      </div>
+      {data.conclusion && (
+        <div className={styles.conclusion}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.conclusion}</ReactMarkdown>
+        </div>
+      )}
     </div>
   );
 }

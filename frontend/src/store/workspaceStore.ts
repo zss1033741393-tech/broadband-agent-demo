@@ -10,6 +10,7 @@ import type {
   DoneEvent,
   ErrorEvent as SseErrorEvent,
   ReportEvent,
+  WifiResultEvent,
   StepStartEvent,
   StepEndEvent,
   SubStepEvent,
@@ -381,13 +382,34 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             }
             case 'render': {
               const block = e.data as RenderBlock;
+              // image 类型改由 wifi_result 事件处理，此处跳过
+              if (block.renderType === 'image') break;
               updateAssistant((m) => ({
                 ...m,
                 renderBlocks: [...(m.renderBlocks ?? []), block],
               }));
-              // 仅当前活跃会话才更新右侧渲染
               if (get().activeConversationId === convId) {
                 set((s) => ({ currentRenders: [...s.currentRenders, block] }));
+              }
+              break;
+            }
+            case 'wifi_result': {
+              const d = e.data as WifiResultEvent;
+              const imageBlocks: RenderBlock[] = d.renderData.images.map((img) => ({
+                renderType: 'image' as const,
+                renderData: {
+                  imageId: img.imageId,
+                  imageUrl: img.imageUrl,
+                  title: img.title,
+                  kind: img.kind,
+                },
+              }));
+              updateAssistant((m) => ({
+                ...m,
+                renderBlocks: [...(m.renderBlocks ?? []), ...imageBlocks],
+              }));
+              if (get().activeConversationId === convId) {
+                set((s) => ({ currentRenders: [...s.currentRenders, ...imageBlocks] }));
               }
               break;
             }
