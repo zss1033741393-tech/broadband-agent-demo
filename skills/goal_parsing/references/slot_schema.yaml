@@ -2,7 +2,7 @@ root: user_type
 slots:
   user_type:
     required: true
-    enum: [主播用户, 游戏用户, VVIP用户]
+    enum: [主播用户, 游戏用户, 视频用户,会议用户]
     prompt: "请问您是哪类用户？"
     next: package_type
   package_type:
@@ -21,12 +21,12 @@ slots:
     next: [guarantee_target, time_window]
   guarantee_target:
     required: true
-    enum: [家庭网络, STA级, 整网]
+    enum: [家庭级, 应用级]
     prompt: "您希望保障的范围是？"
   time_window:
-    required: true
+    required: false
     type: string
-    prompt: "需要保障的时间段是？（例如 18:00-22:00 或 全天）"
+    prompt: "需要保障的时间段是？（例如 18:00-22:00 或 全天，默认全天）"
   guarantee_app:
     required: false
     type: string

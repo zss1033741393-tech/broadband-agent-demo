@@ -59,6 +59,34 @@ def _safe_parse_json(raw: str) -> dict:
     return json.loads(raw)
 
 
+def _inject_chart_placeholders(ctx: Dict[str, Any]) -> None:
+    """对有图表的步骤，自动在 description 末尾追加 [CHART:p{phase_id}s{step_id}]。
+
+    判断依据（任一为真即注入）：
+    - step.has_chart == True（LLM 填写的布尔标记，成本低）
+    - step.chart_configs 非空（兜底，兼容旧格式）
+
+    LLM 生成占位符不稳定（多 phase 时容易遗漏），由脚本统一处理更可靠。
+    若 description 末尾已含正确占位符则跳过（幂等）。
+    """
+    for phase in ctx.get("phases") or []:
+        phase_id = phase.get("phase_id", 0)
+        for step in phase.get("steps") or []:
+            if not (step.get("has_chart") or step.get("chart_configs")):
+                continue
+            step_id = step.get("step_id", 0)
+            placeholder = f"[CHART:p{phase_id}s{step_id}]"
+            desc = step.get("description") or ""
+            if isinstance(desc, dict):
+                # description 是 dict 时取 summary 字段插入占位符
+                summary = desc.get("summary", "")
+                if placeholder not in summary:
+                    desc["summary"] = summary + f"\n\n{placeholder}"
+            else:
+                if placeholder not in str(desc):
+                    step["description"] = str(desc) + f"\n\n{placeholder}"
+
+
 def render(context_json: str) -> str:
     """渲染 Markdown 报告。
 
@@ -73,6 +101,7 @@ def render(context_json: str) -> str:
         return f"渲染失败: 无效的上下文 JSON — {exc}"
 
     ctx.setdefault("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    _inject_chart_placeholders(ctx)
 
     env = Environment(
         loader=FileSystemLoader(str(_REFERENCES_DIR)),

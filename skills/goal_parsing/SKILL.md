@@ -23,10 +23,10 @@ description: "目标解析：通过决策树追问收集综合目标所需的 7 
 
 | 槽位 | 类型 | 枚举/示例 | 依赖 |
 |---|---|---|---|
-| `user_type` | enum | 主播用户 / 游戏用户 / VVIP用户 | — |
+| `user_type` | enum | 主播用户 / 游戏用户 / 视频用户 / 会议用户 | — |
 | `package_type` | enum | 普通套餐 / 直播套餐 / 专线套餐 | — |
 | `scenario` | enum | 家庭直播 / 卖场走播 / 楼宇直播 | depends_on `package_type`（分支枚举） |
-| `guarantee_target` | enum | 家庭网络 / STA级 / 整网 | — |
+| `guarantee_target` | enum | 家庭级 / 应用级 | — |
 | `time_window` | string | 18:00-22:00 / 全天 | — |
 | `guarantee_app` | string | 抖音 / 王者荣耀 / … | 可选 |
 | `complaint_history` | bool | 是 / 否 | 可选 |
@@ -82,8 +82,8 @@ description: "目标解析：通过决策树追问收集综合目标所需的 7 
   "is_complete": false,
   "missing_slots": ["user_type", "guarantee_target"],
   "next_questions": [
-    {"slot_name": "user_type", "prompt": "请问您是哪类用户？（主播用户 / 游戏用户 / VVIP用户）"},
-    {"slot_name": "guarantee_target", "prompt": "您希望保障的范围是？（家庭网络 / STA级 / 整网）"}
+    {"slot_name": "user_type", "prompt": "请问您是哪类用户？（主播用户 / 游戏用户 / 视频用户 / 会议用户）"},
+    {"slot_name": "guarantee_target", "prompt": "您希望保障的范围是？（家庭级 / 应用级）"}
   ]
 }
 ```

@@ -71,7 +71,7 @@ Orchestrator 只做关键词匹配，**不提取参数**，把用户原话作为
 
 **规则**：
 - **AP补点推荐** 段落中，`WIFI信号仿真`、`应用卡顿仿真`、`AP补点推荐` 三项全为 `False` → **跳过** `provisioning-wifi`，不派发
-- **差异化承载** 段落中，`差异化wifi切片：False` → **跳过** `provisioning-delivery`，不派发
+- **差异化承载** 段落中，`差异化承载：False` → **跳过** `provisioning-delivery`，不派发
 - **CEI体验感知 / 故障诊断 / 远程优化** 三段，若 `CEI模型：无` 且 `诊断场景：无` 且 `远程WIFI信道切换/远程网关重启/远程WIFI功率调优` 全 `False` → **跳过** `provisioning-cei-chain`，不派发；否则三段合并传入
 - 启用的多个实例**按固定顺序串行**调用：`provisioning-wifi` → `provisioning-delivery` → `provisioning-cei-chain`，必须等前一个 `delegate_task_to_member` 工具调用返回结果后，才可发起下一个。**严禁**在同一轮对话中并发发起多个 `delegate_task_to_member` 调用。
 - CEI + 故障 + 远程优化 **三段合并**传入 `provisioning-cei-chain`，由它内部顺序串行处理（含 CEI 评分回采步骤）

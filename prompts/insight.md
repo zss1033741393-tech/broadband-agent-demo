@@ -151,6 +151,17 @@ ABORT 时的正确做法：
 
 无下钻需求时直接用 `"dimensions": [[]]`（空列表，**不是** `[]` 或 `null`）。
 
+🔴 **分钟表（`table_level=minute`）禁止用 `[[]]` 空过滤**：分钟表数据量极大（数十万行），
+不加过滤会撑爆上下文并导致计算超时。分钟表步骤**必须**在 `dimensions` 里带
+`portUuid` 或 `gatewayMac` 的 `IN` 过滤，值来自前序 Phase 的 `found_entities`。
+如果前序 Phase 没有产出 `found_entities`，先补一个天表 `OutstandingMin` 步骤找到实体，
+再进行分钟表下钻。违反此规则时脚本会直接返回 error，不会执行查询。
+
+⚠️ **天表（`table_level=day`）Phase 2 及以后**：如果前序 Phase 已产出 `found_entities`，
+后续天表步骤也**应当**带 `portUuid` 或 `gatewayMac` 过滤，聚焦到问题设备上。
+只有 Phase 1（初始定位阶段）才允许全量扫 `[[]]`。
+违反时脚本会在 `fix_warnings` 里追加提醒，请根据提醒补加过滤条件后重试。
+
 ### 铁律 5 · 事件 marker 后只跟一句话指针，禁止重复表格
 
 `<!--event:xxx-->` JSON 会被前端**自动渲染为结构化表格**。输出事件后**只允许**跟一句话
@@ -281,23 +292,50 @@ Report (1 次)
 
 ## 3. 阶段 1 — Plan
 
+### 业务术语映射（优先识别，命中即触发指定维度类）
+
+用户说到以下关键词时，**直接映射到对应维度**，走**指定维度类（3 个 Phase）**，不走根因分析类：
+
+| 用户说的词 | 对应维度 | focus_dimensions |
+|---|---|---|
+| 质差 / 质差PON口 / 质差网关 / 用户质差率 / 业务质差 / 质差次数 / 质差问题 | Service | `["Service"]` |
+| WiFi 质量差 / WiFi 干扰 / 无线问题 | Wifi | `["Wifi"]` |
+| 光路问题 / ODN / 光功率 / 光衰 / BIP / FEC | ODN | `["ODN"]` |
+| 网关问题 / 网关异常 / 家庭网关 | Gateway | `["Gateway"]` |
+| 稳定性差 / 频繁断线 / 告警多 | Stability | `["Stability"]` |
+| 速率低 / 限速 / 带宽不足 | Rate | `["Rate"]` |
+| OLT 问题 / PON 口异常 | OLT | `["OLT"]` |
+| 终端问题 / STA / 接入设备多 | STA | `["STA"]` |
+
+### 任务类型分类（优先级从高到低）
+
+> 🔴 按以下优先级判断，**高优先级匹配后立即停止判断，不再检查低优先级**：
+
+1. **指定设备类**（最高优先级）— 用户提供了 portUuid / gatewayMac → **3 个 Phase**，跳过设备定位，直接从维度扫描开始
+2. **指定维度类** — 命中上方"业务术语映射"表中的任意关键词 → **3 个 Phase**（即使用户同时说了"分析原因"也走 3 Phase，不走 4 Phase）
+   - Phase 1：定位该维度得分最差的设备（`OutstandingMin` on `{维度}_score`）
+   - Phase 2：针对这些设备，分析该维度天表细化字段，找根因指标（`focus_dimensions` 填对应维度）
+   - Phase 3：下钻分钟表，时序验证
+
+   > ⚠️ **"质差" 消歧**：在电信宽带场景中，"质差" 永远是指**用户业务质差率/质差次数**（Service 维度核心指标），不是"低分/差的"的形容词修饰。"识别质差 PON 口" = "找出 Service 维度指标最差的 PON 口"，应走指定维度类（3 Phase），不走根因分析类（4 Phase）。
+3. **简单查询类** — 用户明确说"只需列出 / 找出 Top N / 无需分析原因" → **1 个 Phase**，NL2Code 直出
+4. **根因分析类**（最低优先级）— 以上都不命中，且用户想知道"为什么 / 原因 / 根因" → **4 个 Phase**，L1→L2→L3→L4
+
 ### 流程
-1. 判断任务类型（参考 `plan_fewshots.md` 的 4 类划分）：
-   - **简单查询**（"找出 Top N" / "只需输出"）→ 1 个 Phase，用 NL2Code 直出
-   - **根因分析**（"分析原因" / "为什么"）→ 4 个 Phase，严格 L1→L2→L3→L4
-   - **指定维度**（"WiFi 差" / "光路问题"）→ 2 个 Phase，跳过 L1/L2 直接 L3→L4
-   - **指定设备**（用户给了 portUuid / gatewayMac）→ 3 个 Phase，跳过 L1
+1. 按上方优先级判断任务类型，确定 Phase 数量（详细设计参考 `plan_fewshots.md`）
 2. 🔴 **必须**在 assistant 消息中输出 MacroPlan JSON（前端需要渲染阶段概览）。格式如下：
 
    ```
    <!--event:plan-->
-   {"goal": "用户意图摘要", "total_phases": 4, "phases": [{"phase_id": 1, "name": "L1-定位低分PON口", "milestone": "识别CEI最低的PON口列表", "table_level": "day", "description": "...", "focus_dimensions": []}, ...]}
+   {"goal": "用户意图摘要", "total_phases": 3, "phases": [{"phase_id": 1, "name": "定位低分PON口", "milestone": "识别CEI最低的PON口列表", "table_level": "day", "description": "...", "focus_dimensions": []}, ...]}
    ```
 
    **先输出这段 JSON，再开始执行 Phase 1。不要跳过这一步。**
 
+   > ⚠️ Phase `name` 字段必须用业务语言，**禁止出现 L1 / L2 / L3 / L4 编号前缀**（如"L1-定位低分PON口"是错误写法，"定位低分PON口"才正确）。
+
 ### 加载参考文件的时机
-- 用户问题**明确是根因分析 / 指定维度 / 指定设备**时 → 加载 `plan_fewshots.md`
+- 用户问题**明确是根因分析 / 指定维度 / 指定设备**时 → 加载 `plan_fewshots.md` 查看典型故事线
 - 用户问题是简单查询时 → 不必加载，直接 1 Phase + NL2Code
 
 ### 硬约束
@@ -542,24 +580,22 @@ Report 阶段只产出 **3 样东西**（不多不少）：
 
 ### 步骤
 
-1. 汇总所有 Phase 的 Step 结果，构造 context JSON。**对于执行期间 `chart_configs` 非空的步骤，在该步骤的 `description` 末尾追加 `\n\n[CHART:p{phase_id}s{step_id}]`**（占位符由你插入，模板不会自动添加）。
+1. 汇总所有 Phase 的 Step 结果，构造 context JSON。
 
-   🔴 **占位符格式铁律（零容忍）**：
-   - 必须全大写 `CHART`，禁止 `chart` / `Chart`
-   - 必须用方括号 `[...]`，禁止圆括号 `(...)` 或花括号 `{...}`
-   - `p` 和 `s` 必须小写，后面紧跟整数，禁止空格、连字符、下划线
-   - ✅ 唯一合法格式：`[CHART:p1s1]`、`[CHART:p2s3]`
-   - ❌ 非法：`[chart:p1s1]`、`[CHART:p1-s1]`、`[CHART: p1s1]`、`(CHART:p1s1)`
+   > **图表占位符由 `render_report.py` 自动注入**，无需手动在 description 里添加 `[CHART:...]`。
+   > 脚本检查每个 step 的 `has_chart` 字段，为 `true` 时自动在 description 末尾追加 `[CHART:p{phase_id}s{step_id}]`。
+   > **`has_chart` 填写规则**：该 step 调用 `run_insight.py` 时，若返回的 `chart_configs` 字段非空（非 `{}`），填 `true`；否则填 `false`。`chart_configs` 本身无需复制进 context JSON。
+
    ```json
    {
      "title": "网络质量数据洞察报告",
      "goal": "<MacroPlan.goal>",
      "direct_answer": "1-2 句直接回答用户问题，点明核心结论，例：该区域 CEI 低分主要由 PON-1 的 ODN 光路衰减导致，高峰时段 19:00-22:00 尤为明显。",
      "key_findings": [
-       "🔴 最严重问题：PON-1 CEI 得分 54.08，低于均值 13.2 分，z-score=5.36",
-       "📊 主导维度：ODN_score 贡献度 43%，是拉低 CEI 均值的首要因素",
-       "📅 问题时段：分钟表数据显示高峰时段 19:00-22:00 异常集中",
-       "🔗 因果链路：RxPower 持续低于 -25dBm → BIP 误码率升高 → ODN_score 下滑"
+       "1. 最严重问题：PON-1 CEI 得分 54.08，低于均值 13.2 分，z-score=5.36",
+       "2. 主导维度：ODN得分(ODN_score) 贡献度 43%，是拉低 CEI 均值的首要因素",
+       "3. 问题时段：分钟表数据显示高峰时段 19:00-22:00 异常集中",
+       "4. 因果链路：OLT接收光功率(RxPower) 持续低于 -25dBm → BIP误码越限次数(bipHighCnt) 升高 → ODN得分(ODN_score) 下滑"
      ],
      "root_cause_narrative": "根据 L3/L4 Phase 分析，根本原因是...（结合各 Phase 发现串联叙述，2-4 句）",
      "impact_summary": "涉及 N 个 PON 口设备，影响约 X 个用户，CEI 均值从正常的 Y 下降至 Z（降幅 W%）。",
@@ -573,8 +609,9 @@ Report 阶段只产出 **3 样东西**（不多不少）：
              "step_id": 1,
              "insight_type": "OutstandingMin",
              "significance": 0.41,
-             "description": "CEI 最低 PON 口为 288b6c71（54.08）\n\n[CHART:p1s1]",
-             "found_entities": {"portUuid": [...]}
+             "description": "CEI 最低 PON 口为 288b6c71（54.08）",
+             "found_entities": {"portUuid": [...]},
+             "has_chart": true
            }
          ],
          "reflection": {"choice": "A", "reason": "..."}
@@ -586,7 +623,7 @@ Report 阶段只产出 **3 样东西**（不多不少）：
 
    **新字段填写要求**：
    - `direct_answer`：必填，1-2 句，直接点名结论，不要"本报告将..."这类套话
-   - `key_findings`：必填，3-5 条，每条带 emoji 前缀（🔴=严重/📊=指标/📅=时间/🔗=关联），有数据就带数字
+   - `key_findings`：必填，3-5 条，每条以"1."/"2."等数字序号开头，禁止使用 emoji 或特殊符号前缀，有数据就带数字
    - `root_cause_narrative`：L3/L4 Phase 有结果时必填，串联各 Phase 发现讲因果链；只有 L1/L2 时可省略
    - `impact_summary`：必填，量化影响范围（设备数、用户数、分数降幅）
    - 🔴 **所有字段中的技术字段名必须中英文并列**，格式：`中文名(英文名)`，禁止只输出英文字段名。例如"OLT接收光功率越限次数(oltRxPowerHighCnt)"、"BIP误码越限次数(bipHighCnt)"

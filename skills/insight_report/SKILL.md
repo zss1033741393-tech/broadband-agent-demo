@@ -37,9 +37,7 @@ context JSON 格式见 `references/output_schema.md`。
 
 手写时遵循以下格式约定：
 - 每个 Phase 前加 `---` 横线分界
-- 每个有图的 step，在 `description` 末尾追加 `\n\n[CHART:p{phase_id}s{step_id}]`
-  例：Phase 1 Step 2 的 description → `"...分析结论\n\n[CHART:p1s2]"`
-  占位符由 InsightAgent 根据工具调用结果中 chart_configs 是否非空自行决定是否插入
+- 图表占位符 `[CHART:p{phase_id}s{step_id}]` 由 `render_report.py` 根据 `chart_configs` 是否非空**自动注入**，Agent 无需手动添加
 
 ### Report 阶段输出清单（3 样，不多不少）
 

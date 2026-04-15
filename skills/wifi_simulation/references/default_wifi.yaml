@@ -1,47 +1,56 @@
+# wifi_simulation Skill 参数默认值与可选值速查
+#
+# 实际默认值集中在 scripts/simulate.py 的 _DEFAULTS；本文档仅供 Agent / 开发者
+# 参考"有哪些可选项"。参数 schema 以 SKILL.md 为准。
+
 wifi_simulation:
-  # 场景描述
-  scenario:
-    name: "家庭无线仿真"
-    layout: "3室1厅"              # 户型
-    area_sqm: 100                 # 面积(平方米)
-    wall_count: 5                 # 隔墙数量
-    wall_material: "brick"        # 墙体材质: brick | concrete | wood | glass
-    floor_count: 1                # 楼层数
+  # ── 户型预设（由 home_wifi_engine.py 内嵌，无需外部户型图）────────────────
+  preset:
+    default: "大平层"
+    options:
+      - name: "一居室"
+        size_m: [8, 6]
+        rooms: "客厅 + 卧室 + 厨卫"
+      - name: "两居室"
+        size_m: [10, 8]
+        rooms: "客厅 + 主卧 + 次卧 + 厨房 + 卫生间"
+      - name: "三居室"
+        size_m: [12, 10]
+        rooms: "客厅 + 主卧 + 次卧×2 + 厨房 + 卫生间"
+      - name: "大平层"
+        size_m: [15, 12]
+        rooms: "开放客餐厅 + 主卧套 + 次卧×2 + 书房 + 厨房 + 双卫"
 
-  # AP 配置
-  access_points:
-    - id: "AP-1"
-      position: [5.0, 5.0]       # 坐标(米)
-      band: "dual"                # 2.4G | 5G | dual
-      channel_2g: 6
-      channel_5g: 36
-      tx_power_dbm: 20
-      standard: "wifi6"           # wifi5 | wifi6 | wifi6e
+  # ── AP 布局（由 engine 按几何/常见拓扑自动分布）──────────────────────────
+  ap_count:
+    default: 1
+    hint: "1 → 几何中心；2~4 → 均匀左右 / 三角 / 四角；>4 → 网格均匀"
 
-  # 终端设备
-  stations:
-    - id: "STA-1"
-      type: "phone"
-      position: [8.0, 3.0]
-      standard: "wifi6"
-    - id: "STA-2"
-      type: "laptop"
-      position: [2.0, 7.0]
-      standard: "wifi5"
-    - id: "STA-3"
-      type: "smart_tv"
-      position: [9.0, 8.0]
-      standard: "wifi6"
+  # ── 栅格分辨率 ───────────────────────────────────────────────────────────
+  grid_size:
+    default: 40
+    recommended_range: [20, 60]
+    note: "栅格越大计算越慢；40×40 约 5~15s（含 0.5dB RSSI 量化缓存），80×80 约 30s+"
 
-  # 仿真参数
-  simulation:
-    duration_minutes: 30
-    traffic_model: "mixed"        # video | gaming | mixed | browsing
-    interference_level: "medium"  # low | medium | high
-    num_iterations: 100
+  # ── 门洞渲染（show_doors，仅大平层）─────────────────────────────────────
+  show_doors:
+    default: true
+    hint: "仅对大平层生效；true 时用精细化分段墙体替换默认墙体，门洞处无衰减"
 
-  # 评估指标
-  evaluation:
-    coverage_threshold_dbm: -70   # 覆盖信号强度阈值
-    throughput_target_mbps: 100   # 目标吞吐量
-    latency_target_ms: 20        # 目标时延
+  target_ap_count:
+    default: 3
+    constraint: "compare=true 时必须 > ap_count"
+
+# ── 信号模型参数（engine 内部固定，业务不应改）────────────────────────────
+engine_internal:
+  tx_power_dbm: 10            # home-wifi-simulator 默认调弱到 10dBm 模拟家用场景
+  freq_ghz: 5.0
+  fspl: true
+  wall_attenuation_db:
+    exterior: 10
+    interior: 4-6
+  rssi_cmap: "-90dBm=红 / -60dBm=黄 / -30dBm=绿"
+  stall_sim:
+    duration_sec: 10
+    step_ms: 5
+    rssi_quantization_db: 0.5  # 相同 RSSI 桶仅仿真一次（加速）
