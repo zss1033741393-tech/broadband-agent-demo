@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-家宽网络调优智能助手。基于 agno 框架的 **Team (coordinate 模式) 多智能体系统**，包含 1 个 Orchestrator + 5 个 SubAgent + 14 个业务 Skills，覆盖从意图识别到配置下发的完整流程。
+家宽网络调优智能助手。基于 agno 框架的 **Team (coordinate 模式) 多智能体系统**，包含 1 个 Orchestrator + 5 个 SubAgent + 15 个业务 Skills，覆盖从意图识别到配置下发的完整流程。
 
 核心模式：**Orchestrator 路由/拆分 → 决策型 Agent (Planning/Insight) + 执行型 Agent (3 × Provisioning) → 参数 schema 驱动的 Skill 调用 → Mock 下游**
 
@@ -18,9 +18,10 @@ OrchestratorTeam (leader, coordinate 模式, prompts/orchestrator.md)
   ├─ InsightAgent              (insight_plan + insight_decompose + insight_query
   │                             + insight_nl2code + insight_reflect + insight_report)
   ├─ ProvisioningWifiAgent     (wifi_simulation)              ← 单 Skill 自驱 4 步
-  ├─ ProvisioningDeliveryAgent (differentiated_delivery)
-  └─ ProvisioningCeiChainAgent (cei_pipeline + fault_diagnosis + remote_optimization)
-                                                              ← 条件串行 workflow
+  ├─ ProvisioningDeliveryAgent (experience_assurance)
+  └─ ProvisioningCeiChainAgent (cei_pipeline + cei_score_query
+                                + fault_diagnosis + remote_optimization)
+                                                              ← 顺序串行 workflow
 ```
 
 **关键边界**：
@@ -46,14 +47,15 @@ OrchestratorTeam (leader, coordinate 模式, prompts/orchestrator.md)
 │   ├── insight.md          # Plan→[Decompose→Execute→Reflect]×N→Report 洞察 + 输出路由协议
 │   └── provisioning.md     # 3 个 Provisioning 实例共享，参数 schema 驱动
 ├── fae_poc/                # FAE 平台共享基础设施 (NCELogin + config.ini, .gitignore)
-├── skills/                 # 14 个自包含 Skills (LocalSkills 自动扫描)
+├── skills/                 # 15 个自包含 Skills (LocalSkills 自动扫描)
 │   ├── goal_parsing/       # 槽位追问引擎 (Inversion + 脚本)
 │   ├── plan_design/        # 方案设计 (Instructional, 无脚本, 仅 SKILL.md + few-shot)
 │   ├── plan_review/        # 方案评审 (Reviewer, violations + recommendations)
 │   ├── cei_pipeline/       # CEI 权重配置下发 (Tool Wrapper, scripts/ + 对接 FAE 真实接口)
-│   ├── fault_diagnosis/    # 故障诊断配置 (参数 schema 驱动)
+│   ├── cei_score_query/    # CEI 体验查询 (Tool Wrapper, 对接 FAE 真实接口)
+│   ├── fault_diagnosis/    # 故障诊断 (Tool Wrapper, 对接 FAE 真实接口, 内部 start+poll+query)
 │   ├── remote_optimization/# 远程优化动作 (Tool Wrapper, 对接 FAE 真实接口)
-│   ├── differentiated_delivery/ # 差异化承载 (切片/Appflow, 参数 schema 驱动)
+│   ├── experience_assurance/ # 差异化承载 (Tool Wrapper, 对接 FAN 网络切片服务 app-flow 接口)
 │   ├── wifi_simulation/    # WIFI 3+1 步仿真 (户型图处理 → 信号仿真 → 网络仿真, 选点可选)
 │   ├── insight_plan/       # 洞察规划 (Instructional, MacroPlan 生成)
 │   ├── insight_decompose/  # Phase 分解 (Tool Wrapper, list_schema.py + 参考文件)
@@ -75,7 +77,7 @@ OrchestratorTeam (leader, coordinate 模式, prompts/orchestrator.md)
 场景 1 · 综合目标:
   Orchestrator → PlanningAgent (goal_parsing → plan_design → plan_review)
                → 按方案段落拆分并行派发
-               → [provisioning_wifi] + [provisioning_delivery] + [provisioning_cei_chain]
+               → [provisioning-wifi] + [provisioning-delivery] + [provisioning-cei-chain]
                → 汇总结果
 
 场景 2 · 数据洞察:
@@ -109,9 +111,8 @@ OrchestratorTeam (leader, coordinate 模式, prompts/orchestrator.md)
 - `plan_design` / `insight_plan` / `insight_reflect` — Instructional（无脚本，纯指令）
 - `goal_parsing` — Inversion（槽位追问引擎）
 - `plan_review` — Reviewer（违规清单 + 建议）
-- `cei_pipeline` / `remote_optimization` — Tool Wrapper（封装 FAE 平台真实接口，CLI args 驱动）
+- `cei_pipeline` / `cei_score_query` / `fault_diagnosis` / `remote_optimization` / `experience_assurance` — Tool Wrapper（封装 FAE / FAN 平台真实接口，CLI args 驱动；`fault_diagnosis` 脚本内部自驱 start+poll+query 三阶段；`experience_assurance` 由 Provisioning 层做"业务字段 → UUID 参数"映射）
 - `insight_decompose` / `insight_query` / `insight_nl2code` — Tool Wrapper（脚本执行型）
-- `fault_diagnosis` / `differentiated_delivery` — Generator（参数 schema 驱动，纯模板填空）
 - `wifi_simulation` — Pipeline（内部 3+1 步串行）
 - `insight_report` — Generator（Markdown/ECharts 报告渲染）
 

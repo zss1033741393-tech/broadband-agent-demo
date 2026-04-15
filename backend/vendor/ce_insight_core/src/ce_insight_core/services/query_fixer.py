@@ -113,6 +113,16 @@ def fix_query_config(query_config: dict, table_level: str = "day") -> tuple[dict
     # 修复 measures（返回警告列表）
     config["measures"], fix_warnings = _fix_measures(config.get("measures", []), table_level)
 
+    # 最终兜底：天表永远不允许 measures 被清空（day_schema 校验只做字段名修正，不做丢弃）
+    # 分钟表可能合理地把不合法字段全部丢弃，所以只对天表生效
+    original_measures = query_config.get("measures", [])
+    if table_level == "day" and not config["measures"] and original_measures:
+        logger.warning(
+            "_fix_measures 意外清空了天表 measures，还原原始值: %s",
+            [m.get("name") for m in original_measures if isinstance(m, dict)],
+        )
+        config["measures"] = deepcopy(original_measures)
+
     # 修复 dimensions
     config["dimensions"] = _fix_dimensions(
         config.get("dimensions", [[]]),

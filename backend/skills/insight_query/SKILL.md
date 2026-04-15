@@ -37,7 +37,11 @@ payload：
     "breakdown": {"name": "portUuid", "type": "UNORDERED"},
     "measures": [{"name": "CEI_score", "aggr": "AVG"}]
   },
-  "table_level": "day"
+  "table_level": "day",
+  "phase_id": 1,
+  "step_id": 1,
+  "phase_name": "L1-定位低分PON口",
+  "step_name": "找出 CEI_score 最低的 PON 口"
 }
 ```
 
@@ -66,7 +70,11 @@ payload：
   "filter_data": [{"portUuid": "uuid-a", "CEI_score": 54.08}, ...],
   "chart_configs": {"chart_type": "bar", "title": {...}, "series": [...]},
   "found_entities": {"portUuid": ["uuid-a", "uuid-b"]},
-  "data_shape": [3857, 2]
+  "data_shape": [3857, 2],
+  "phase_id": 1,
+  "step_id": 1,
+  "phase_name": "L1-定位低分PON口",
+  "step_name": "找出 CEI_score 最低的 PON 口"
 }
 ```
 

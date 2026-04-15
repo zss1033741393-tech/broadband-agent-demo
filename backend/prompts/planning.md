@@ -35,6 +35,18 @@ get_skill_script(
 - `is_complete=false + next_questions` → **一次问 2-3 个槽位**（合并为一句自然语言，不要逐个问）
 - `is_complete=true` → 进入方案设计
 
+### 3.1 🔴 追问门控（Inversion 范式硬约束）
+
+当 `is_complete=false` 时：
+
+1. **禁止**继续调用任何后续 skill（不得进入 `plan_design` / `plan_review`）
+2. **禁止**为缺失槽位补默认值或猜测
+3. 把 `next_questions` 里 2-3 个槽位合并为**一句自然语言**，作为 **assistant 最终回复**返回给 Orchestrator
+4. 末尾可以附一行上下文摘要："已理解：套餐=直播套餐、场景=卖场走播、时段=18:00-22:00、保障应用=抖音"，帮用户确认已识别内容
+5. 等待下一轮用户回答带回（通过 Orchestrator 中转），再次调用 `slot_engine.py`，直到 `is_complete=true`
+
+### 3.2 追问措辞范例
+
 追问示例（错误 vs 正确）：
 - ❌ "请问您是哪类用户？" → 等待 → "您希望保障的范围是？"
 - ✅ "为了生成方案，需要确认两点：您是哪类用户（主播 / 游戏 / VVIP）？希望保障的范围是（家庭网络 / STA 级 / 整网）？"
@@ -90,9 +102,15 @@ get_skill_script(
 
 ## 7. 输出协议
 
-- 交给 Orchestrator 的最终产出：**分段 Markdown 方案 + `plan_review` 校验结果**
-- 槽位追问过程是 Planning 内部事务，不要带给 Orchestrator
+Planning 有**两种**最终产出形态，Orchestrator 必须各自识别处理：
+
+| 形态 | 触发条件 | 回复内容 | Orchestrator 后续动作 |
+|---|---|---|---|
+| **追问态** | `goal_parsing` 返回 `is_complete=false` | 一句自然语言追问 + 已识别槽位摘要（§3.1） | 原样透传给用户，等用户回答后再次派发 Planning（带上轮 state） |
+| **方案态** | `goal_parsing` 返回 `is_complete=true` 且 `plan_design` + `plan_review` 已完成 | 分段 Markdown 方案 + `plan_review` 校验结果 | 按 orchestrator.md §4.5 呈现方案 → **等待用户确认** → 再拆分派发 |
+
 - 段落标题使用严格匹配的中文标签，便于 Orchestrator 按标题切分派发
+- 方案 Markdown 里**不要**混入追问内容；追问态就只回追问，不附部分方案
 
 ---
 

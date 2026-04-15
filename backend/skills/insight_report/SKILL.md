@@ -35,6 +35,12 @@ context JSON 格式见 `references/output_schema.md`。
 - 关键发现总结
 - 结构化交接契约 JSON
 
+手写时遵循以下格式约定：
+- 每个 Phase 前加 `---` 横线分界
+- 每个有图的 step，在 `description` 末尾追加 `\n\n[CHART:p{phase_id}s{step_id}]`
+  例：Phase 1 Step 2 的 description → `"...分析结论\n\n[CHART:p1s2]"`
+  占位符由 InsightAgent 根据工具调用结果中 chart_configs 是否非空自行决定是否插入
+
 ### Report 阶段输出清单（3 样，不多不少）
 
 1. **`render_report.py` stdout**（Markdown 报告，通过 ToolCallCompleted 自动展示）
@@ -58,3 +64,4 @@ context JSON 格式见 `references/output_schema.md`。
 ## 禁止事项
 - ❌ 不得改写 render_report.py 的 stdout
 - ❌ 报告完成后禁止自动进入 Planning（必须等用户确认）
+- ❌ context JSON 各字段（包括 key_findings、direct_answer、root_cause_narrative 等）禁止使用 emoji 字符，只能使用纯文本

@@ -12,6 +12,10 @@
 {
   "title": "网络质量数据洞察报告",
   "goal": "<MacroPlan.goal>",
+  "direct_answer": "1-2 句直接回答用户问题的核心结论",
+  "key_findings": ["🔴 最严重问题：...", "📊 关键指标：...", "📅 问题时段：...", "🔗 因果链路：..."],
+  "root_cause_narrative": "串联各 Phase 发现的根因叙述（2-4 句）",
+  "impact_summary": "影响范围与程度的量化描述",
   "phases": [
     {
       "phase_id": 1,

@@ -12,7 +12,9 @@
         "group_column": "portUuid",            // 可选；不传则从 breakdown 推导
         "data_path": "mock",
         "phase_id": 1,                         // 可选；由 InsightAgent 传入，用于前端关联
-        "step_id": 1                           // 可选；由 InsightAgent 传入，用于前端关联
+        "step_id": 1,                          // 可选；由 InsightAgent 传入，用于前端关联
+        "phase_name": "L1-定位低分PON口",      // 可选；MacroPlan phases[i].name
+        "step_name": "找出 CEI_score 最低的 PON 口"  // 可选；Step 数组的 rationale
     }
 
 输出（stdout）：JSON 字符串，形如
@@ -29,7 +31,9 @@
         "found_entities": {"portUuid": [...]},
         "data_shape": [row, col],
         "phase_id": int | null,
-        "step_id": int | null
+        "step_id": int | null,
+        "phase_name": str | null,
+        "step_name": str | null
     }
 
 `chart_configs` 原样透传 ce_insight_core 的 ECharts option，**禁止改写**。
@@ -40,6 +44,11 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+
+# Windows 兼容：保留默认编码（Linux/Mac 是 UTF-8，Windows 是 GBK），
+# 遇到不可编码字符（如 emoji）替换为 ? 而不是抛 UnicodeEncodeError 崩溃
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
 
 try:
     import ce_insight_core as cic
@@ -155,22 +164,32 @@ def run(payload_json: str) -> str:
 
     data_path = payload.get("data_path") or _resolve_data_path(table_level)
 
-    # 从三元组推导默认的 value_columns / group_column
-    default_value_cols = [m.get("name") for m in query_config.get("measures", []) if m.get("name")]
-    default_group_col = query_config.get("breakdown", {}).get("name", "")
-
-    value_columns = payload.get("value_columns") or default_value_cols
-    group_column = payload.get("group_column") or default_group_col
-
-    if not value_columns:
-        return _err("无法从 payload 或 query_config.measures 推导 value_columns")
-
-    # 1. 修复 + 查询
+    # 1. 修复三元组（query_fixer 可能替换字段名 / breakdown 名 / measures 名）
     try:
         fixed_config, fix_warnings = cic.fix_query_config(query_config, table_level=table_level)
     except Exception as exc:
         return _err(f"fix_query_config 失败: {type(exc).__name__}: {exc}")
 
+    # 兜底：fixer 意外清空 measures 时还原为原始值，确保 SQL 带聚合列
+    if not fixed_config.get("measures"):
+        fixed_config["measures"] = query_config.get("measures", [])
+
+    # 2. 从**修复后**的 config 推导默认的 value_columns / group_column
+    #    （用 fixed_config 而非 query_config，确保 query_fixer 的字段替换被同步，
+    #    避免后续 NEEDS_GROUP 检查时拿到原始字段名而 df 列名是修复后的，导致误报）
+    default_value_cols = [m.get("name") for m in fixed_config.get("measures", []) if m.get("name")]
+    # 兜底：fixer 清空 measures 时，回退到原始 query_config 的 measures
+    if not default_value_cols:
+        default_value_cols = [m.get("name") for m in query_config.get("measures", []) if m.get("name")]
+    default_group_col = fixed_config.get("breakdown", {}).get("name", "")
+
+    value_columns = payload.get("value_columns") or default_value_cols
+    group_column = payload.get("group_column") or default_group_col
+
+    if not value_columns:
+        return _err("无法从 payload 或 fixed_config.measures 推导 value_columns")
+
+    # 3. 查询
     try:
         dfs = cic.query_subject_pandas(fixed_config, data_path)
     except Exception as exc:
@@ -181,8 +200,8 @@ def run(payload_json: str) -> str:
 
     df = dfs[0]
 
-    # 列名兜底：修复后的字段名可能与 LLM 传入的略有差异（如去掉聚合后缀），
-    # run_insight 内部会做列名校验，这里只补一层模糊匹配：若严格匹配失败，尝试 startswith。
+    # 4. 列名兜底：修复后的字段名可能与 fixed_config 里的还有细微差异（如聚合后缀），
+    #    做最后一层模糊匹配（startswith 前缀匹配）
     value_columns = _resolve_columns(df, value_columns)
 
     # 2. 执行洞察
@@ -219,6 +238,8 @@ def run(payload_json: str) -> str:
         "group_column_used": group_column,
         "phase_id": payload.get("phase_id"),
         "step_id": payload.get("step_id"),
+        "phase_name": payload.get("phase_name"),
+        "step_name": payload.get("step_name"),
     }
     return json.dumps(output, ensure_ascii=False, default=_json_default)
 

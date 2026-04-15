@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from typing import Any, List, Literal, Optional, Union
-from pydantic import BaseModel, ConfigDict
 
+from pydantic import BaseModel, ConfigDict
 
 # ─── 通用响应包装 ──────────────────────────────────────────────────────────────
 
@@ -48,17 +48,33 @@ class ConversationListData(BaseModel):
 # ─── 步骤卡 ───────────────────────────────────────────────────────────────────
 
 class SubStep(BaseModel):
+    """单个 Skill 脚本执行结果。
+
+    字段契约严格对齐 docs/sse-interface-spec.md §sub_step 与
+    api/event_adapter.py 的 sub_step 事件生产：前端流式到达与历史回放
+    应当拿到结构一致的 SubStep（仅来源不同）。
+    """
+
     subStepId: str
     name: str
-    result: str
     completedAt: str
     durationMs: int
+    # 以下字段按 SSE 规范均为可选，缺失时前端也能正常渲染
+    scriptPath: Optional[str] = None
+    callArgs: Optional[List[str]] = None
+    stdout: Optional[str] = None
+    stderr: Optional[str] = None
 
 
 class Step(BaseModel):
     stepId: str
     title: str
+    # 有序渲染块列表（thinking / sub_step / text），历史回放时前端直接使用，
+    # 无需从 subSteps 重建，保证与流式展示完全一致。老数据无此字段时默认空列表。
+    items: List[Any] = []
     subSteps: List[SubStep] = []
+    # SubAgent 本身输出的 assistant content
+    textContent: str = ""
 
 
 # ─── 右侧渲染块 ───────────────────────────────────────────────────────────────

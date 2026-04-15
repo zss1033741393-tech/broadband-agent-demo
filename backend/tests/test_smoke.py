@@ -1,4 +1,4 @@
-"""冒烟测试 — 覆盖 Team + 14 Skills 架构的导入、配置与脚本执行。"""
+"""冒烟测试 — 覆盖 Team + 15 Skills 架构的导入、配置与脚本执行。"""
 
 import importlib.util
 import json
@@ -50,37 +50,39 @@ def test_agents_config_structure():
     expected_agents = {
         "planning",
         "insight",
-        "provisioning_wifi",
-        "provisioning_delivery",
-        "provisioning_cei_chain",
+        "provisioning-wifi",
+        "provisioning-delivery",
+        "provisioning-cei-chain",
     }
     assert expected_agents.issubset(agents.keys())
 
     # Planning 挂载 3 个 Skill
     assert set(agents["planning"]["skills"]) == {"goal_parsing", "plan_design", "plan_review"}
-    # CEI 链实例挂载 3 个 Skill
-    assert set(agents["provisioning_cei_chain"]["skills"]) == {
+    # CEI 链实例挂载 4 个 Skill（配置 → 查询 → 诊断 → 闭环）
+    assert set(agents["provisioning-cei-chain"]["skills"]) == {
         "cei_pipeline",
+        "cei_score_query",
         "fault_diagnosis",
         "remote_optimization",
     }
     # WIFI 实例只挂 wifi_simulation
-    assert agents["provisioning_wifi"]["skills"] == ["wifi_simulation"]
-    # Delivery 实例只挂 differentiated_delivery
-    assert agents["provisioning_delivery"]["skills"] == ["differentiated_delivery"]
+    assert agents["provisioning-wifi"]["skills"] == ["wifi_simulation"]
+    # Delivery 实例只挂 experience_assurance（差异化承载，FAN 底层）
+    assert agents["provisioning-delivery"]["skills"] == ["experience_assurance"]
 
 
 def test_all_skills_present():
-    """14 个 Skill 目录均存在且含 SKILL.md。"""
+    """15 个 Skill 目录均存在且含 SKILL.md。"""
     skills_dir = Path(_ROOT) / "skills"
     expected_skills = [
         "goal_parsing",
         "plan_design",
         "plan_review",
         "cei_pipeline",
+        "cei_score_query",
         "fault_diagnosis",
         "remote_optimization",
-        "differentiated_delivery",
+        "experience_assurance",
         "wifi_simulation",
         "insight_plan",
         "insight_decompose",
@@ -191,23 +193,46 @@ def test_cei_pipeline_skill_schema():
         assert stale not in skill_md, f"SKILL.md 残留旧 schema: {stale}"
 
 
-def test_fault_diagnosis_render():
-    mod = _load_script("fault_diagnosis", "render.py")
-    result = json.loads(
-        mod.render(
-            json.dumps(
-                {
-                    "fault_tree_enabled": True,
-                    "whitelist_rules": ["偶发卡顿"],
-                    "severity_threshold": "warning",
-                }
-            )
-        )
+def test_fault_diagnosis_skill_schema():
+    """fault_diagnosis 已切换到 Tool Wrapper 范式，SKILL.md 声明新 schema，旧 Generator 字段已清理。"""
+    skill_md = (Path(_ROOT) / "skills" / "fault_diagnosis" / "SKILL.md").read_text(encoding="utf-8")
+    # 新 Tool Wrapper schema 关键字
+    for keyword in (
+        "Tool Wrapper",
+        "scenario",
+        "query-type",
+        "query-value",
+        "NETWORK_ACCESS_SLOW",
+        "NETWORK_ACCESS_FAILURE",
+        "LIVE_STUTTERING",
+        "GAME_STUTTERING",
+        "ontResId",
+        "uniUuid",
+        "ponResId",
+        "gatewayId",
+        "oltResId",
+        "fae_poc",
+        "fault_diagnosis.py",
+    ):
+        assert keyword in skill_md, f"SKILL.md 缺少关键字: {keyword}"
+    # 旧 Generator schema 关键字应已被清理
+    for stale in (
+        "fault_tree_enabled",
+        "whitelist_rules",
+        "severity_threshold",
+        "render.py",
+        "fault_config.json.j2",
+    ):
+        assert stale not in skill_md, f"SKILL.md 残留旧 Generator schema: {stale}"
+
+
+def test_fault_diagnosis_generator_artifacts_removed():
+    """Generator 范式的脚本和模板已删除。"""
+    skill_dir = Path(_ROOT) / "skills" / "fault_diagnosis"
+    assert not (skill_dir / "scripts" / "render.py").exists(), "旧 Generator 脚本未清理"
+    assert not (skill_dir / "references" / "fault_config.json.j2").exists(), (
+        "旧 Generator 模板未清理"
     )
-    assert result["skill"] == "fault_diagnosis"
-    assert result["params"]["fault_tree_enabled"] is True
-    assert "偶发卡顿" in result["config_json"]
-    assert "dispatch_result" in result
 
 
 def test_remote_optimization_skill_schema():
@@ -401,24 +426,43 @@ def test_fae_poc_example_committed():
     assert "fae_poc/NCELogin.py" in gitignore
 
 
-def test_differentiated_delivery_render():
-    mod = _load_script("differentiated_delivery", "render.py")
-    result = json.loads(
-        mod.render(
-            json.dumps(
-                {
-                    "slice_type": "application_slice",
-                    "target_app": "抖音",
-                    "whitelist": ["douyin.com"],
-                    "bandwidth_guarantee_mbps": 50,
-                }
-            )
-        )
+def test_experience_assurance_skill_schema():
+    """experience_assurance 已切换到 Tool Wrapper 范式，SKILL.md 声明新 CLI schema，旧 Generator 字段已清理。"""
+    skill_md = (Path(_ROOT) / "skills" / "experience_assurance" / "SKILL.md").read_text(
+        encoding="utf-8"
     )
-    assert result["skill"] == "differentiated_delivery"
-    assert result["params"]["target_app"] == "抖音"
-    assert "抖音" in result["config_json"]
-    assert "slice_id" in result["dispatch_result"]
+    for keyword in (
+        "Tool Wrapper",
+        "ne-id",
+        "service-port-index",
+        "policy-profile",
+        "onu-res-id",
+        "app-id",
+        "app-flow/create-assure-config-task",
+        "fae_poc",
+        "experience_assurance.py",
+        "assurance_parameters.md",
+    ):
+        assert keyword in skill_md, f"SKILL.md 缺少关键字: {keyword}"
+    for stale in (
+        "slice_type:",
+        "target_app:",
+        "bandwidth_guarantee_mbps:",
+        "render.py",
+        "slice_config.json.j2",
+    ):
+        assert stale not in skill_md, f"SKILL.md 残留旧 Generator schema: {stale}"
+
+
+def test_differentiated_delivery_removed():
+    """旧 differentiated_delivery 目录已整体删除（已 rename 到 experience_assurance）。"""
+    old_dir = Path(_ROOT) / "skills" / "differentiated_delivery"
+    assert not old_dir.exists(), "旧 differentiated_delivery 目录未清理"
+    new_dir = Path(_ROOT) / "skills" / "experience_assurance"
+    assert (new_dir / "SKILL.md").exists(), "新 experience_assurance SKILL.md 缺失"
+    assert (new_dir / "references" / "assurance_parameters.md").exists(), (
+        "assurance_parameters.md 缺失"
+    )
 
 
 def test_ce_insight_core_importable():
@@ -848,12 +892,12 @@ def _run_chat_handler_sync(events, team_name: str = "home-broadband-team"):
 def test_extract_source_id_member_event():
     from ui.app import _extract_source_id
 
-    ev = _FakeEvent(event="ReasoningContentDelta", agent_id="provisioning_wifi")
-    assert _extract_source_id(ev, is_leader=False) == "provisioning_wifi"
+    ev = _FakeEvent(event="ReasoningContentDelta", agent_id="provisioning-wifi")
+    assert _extract_source_id(ev, is_leader=False) == "provisioning-wifi"
 
     # 空 agent_id 回退到 agent_name
-    ev2 = _FakeEvent(event="ReasoningContentDelta", agent_id="", agent_name="provisioning_delivery")
-    assert _extract_source_id(ev2, is_leader=False) == "provisioning_delivery"
+    ev2 = _FakeEvent(event="ReasoningContentDelta", agent_id="", agent_name="provisioning-delivery")
+    assert _extract_source_id(ev2, is_leader=False) == "provisioning-delivery"
 
     # 两者都为空
     ev3 = _FakeEvent(event="ReasoningContentDelta")
@@ -892,35 +936,35 @@ def test_chat_handler_per_source_reasoning_isolation():
         # wifi 开始推理 (一段话)
         _FakeEvent(
             event="ReasoningContentDelta",
-            agent_id="provisioning_wifi",
-            agent_name="provisioning_wifi",
+            agent_id="provisioning-wifi",
+            agent_name="provisioning-wifi",
             reasoning_content="处理缺失项\n4. 展示推导过程\n5. 调用 Skill\n6. 透",
         ),
         # delivery 插入一段自己的推理 (bug 场景: 此刻会污染单 buffer)
         _FakeEvent(
             event="ReasoningContentDelta",
-            agent_id="provisioning_delivery",
-            agent_name="provisioning_delivery",
-            reasoning_content="当前挂载的技能是 differentiated_delivery,有一个脚本 render.py。",
+            agent_id="provisioning-delivery",
+            agent_name="provisioning-delivery",
+            reasoning_content="当前挂载的技能是 experience_assurance,有一个脚本 experience_assurance.py。",
         ),
         # wifi 继续,补完被 delivery 打断的话
         _FakeEvent(
             event="ReasoningContentDelta",
-            agent_id="provisioning_wifi",
-            agent_name="provisioning_wifi",
+            agent_id="provisioning-wifi",
+            agent_name="provisioning-wifi",
             reasoning_content="传产出。",
         ),
         # wifi 的 reasoning 结束
         _FakeEvent(
             event="ReasoningCompleted",
-            agent_id="provisioning_wifi",
-            agent_name="provisioning_wifi",
+            agent_id="provisioning-wifi",
+            agent_name="provisioning-wifi",
         ),
         # delivery 也结束
         _FakeEvent(
             event="ReasoningCompleted",
-            agent_id="provisioning_delivery",
-            agent_name="provisioning_delivery",
+            agent_id="provisioning-delivery",
+            agent_name="provisioning-delivery",
         ),
     ]
 
@@ -949,12 +993,12 @@ def test_chat_handler_per_source_reasoning_isolation():
 
     # 关键断言 1: wifi 的内容含完整的 "透传产出",没被切断
     assert "透传产出" in wifi_content, f"wifi 的思考应含完整的'透传产出',实际: {wifi_content!r}"
-    # 关键断言 2: delivery 的内容含完整的 "differentiated_delivery"
-    assert "differentiated_delivery" in delivery_content, (
-        f"delivery 的思考应含 'differentiated_delivery',实际: {delivery_content!r}"
+    # 关键断言 2: delivery 的内容含完整的 "experience_assurance"
+    assert "experience_assurance" in delivery_content, (
+        f"delivery 的思考应含 'experience_assurance',实际: {delivery_content!r}"
     )
     # 关键断言 3: wifi 的块里不能混进 delivery 的内容
-    assert "differentiated_delivery" not in wifi_content, (
+    assert "experience_assurance" not in wifi_content, (
         f"wifi 思考块污染了 delivery 的内容: {wifi_content!r}"
     )
     # 关键断言 4: delivery 的块里不能混进 wifi 特有的内容
@@ -974,15 +1018,15 @@ def test_chat_handler_tool_call_from_other_member_does_not_contaminate():
         # delivery 开始推理
         _FakeEvent(
             event="ReasoningContentDelta",
-            agent_id="provisioning_delivery",
-            agent_name="provisioning_delivery",
+            agent_id="provisioning-delivery",
+            agent_name="provisioning-delivery",
             reasoning_content="分析参数 schema",
         ),
         # wifi 首次出现 + 立即发起 tool_call (首次触发徽章 → 固化 delivery 当前 buffer)
         _FakeEvent(
             event="ToolCallStarted",
-            agent_id="provisioning_wifi",
-            agent_name="provisioning_wifi",
+            agent_id="provisioning-wifi",
+            agent_name="provisioning-wifi",
             tool=_FakeTool(
                 tool_name="get_skill_instructions", tool_args={"skill_name": "wifi_simulation"}
             ),
@@ -990,15 +1034,15 @@ def test_chat_handler_tool_call_from_other_member_does_not_contaminate():
         # delivery 继续推理 (新 buffer,独立分段)
         _FakeEvent(
             event="ReasoningContentDelta",
-            agent_id="provisioning_delivery",
-            agent_name="provisioning_delivery",
+            agent_id="provisioning-delivery",
+            agent_name="provisioning-delivery",
             reasoning_content="确认字段对齐。",
         ),
         # delivery reasoning 结束
         _FakeEvent(
             event="ReasoningCompleted",
-            agent_id="provisioning_delivery",
-            agent_name="provisioning_delivery",
+            agent_id="provisioning-delivery",
+            agent_name="provisioning-delivery",
         ),
     ]
 
@@ -1037,19 +1081,19 @@ def test_chat_handler_member_badge_once_per_member():
     """每个 member 一轮只渲染一次徽章,即使事件反复交错。"""
     events = [
         _FakeEvent(
-            event="ReasoningContentDelta", agent_id="provisioning_wifi", reasoning_content="a"
+            event="ReasoningContentDelta", agent_id="provisioning-wifi", reasoning_content="a"
         ),
         _FakeEvent(
-            event="ReasoningContentDelta", agent_id="provisioning_delivery", reasoning_content="b"
+            event="ReasoningContentDelta", agent_id="provisioning-delivery", reasoning_content="b"
         ),
         _FakeEvent(
-            event="ReasoningContentDelta", agent_id="provisioning_wifi", reasoning_content="c"
+            event="ReasoningContentDelta", agent_id="provisioning-wifi", reasoning_content="c"
         ),
         _FakeEvent(
-            event="ReasoningContentDelta", agent_id="provisioning_delivery", reasoning_content="d"
+            event="ReasoningContentDelta", agent_id="provisioning-delivery", reasoning_content="d"
         ),
-        _FakeEvent(event="ReasoningCompleted", agent_id="provisioning_wifi"),
-        _FakeEvent(event="ReasoningCompleted", agent_id="provisioning_delivery"),
+        _FakeEvent(event="ReasoningCompleted", agent_id="provisioning-wifi"),
+        _FakeEvent(event="ReasoningCompleted", agent_id="provisioning-delivery"),
     ]
     history = _run_chat_handler_sync(events)
 
@@ -1077,7 +1121,7 @@ def test_render_tool_call_started_returns_single_folded_block():
     msgs = render_tool_call(
         "cei_pipeline",
         inputs={"weights": "ServiceQualityWeight:40"},
-        member="provisioning_cei_chain",
+        member="provisioning-cei-chain",
     )
     assert isinstance(msgs, list)
     assert len(msgs) == 1
@@ -1208,17 +1252,18 @@ def test_render_tool_call_completed_non_skill_output_single_block():
 
 
 def test_localskills_loads_all():
-    """LocalSkills 能扫描并加载全部 14 个 Skill。"""
+    """LocalSkills 能扫描并加载全部 15 个 Skill。"""
     from agno.skills.loaders.local import LocalSkills
 
     loader = LocalSkills(str(Path(_ROOT) / "skills"), validate=False)
     skills = loader.load()
-    assert len(skills) == 14
+    assert len(skills) == 15
     names = {s.name for s in skills}
     expected = {
         "goal_parsing", "plan_design", "plan_review",
-        "cei_pipeline", "fault_diagnosis", "remote_optimization",
-        "differentiated_delivery", "wifi_simulation",
+        "cei_pipeline", "cei_score_query",
+        "fault_diagnosis", "remote_optimization",
+        "experience_assurance", "wifi_simulation",
         "insight_plan", "insight_decompose", "insight_query",
         "insight_nl2code", "insight_reflect", "insight_report",
     }
@@ -1243,9 +1288,9 @@ def test_create_team_structure():
     assert set(member_names) == {
         "planning",
         "insight",
-        "provisioning_wifi",
-        "provisioning_delivery",
-        "provisioning_cei_chain",
+        "provisioning-wifi",
+        "provisioning-delivery",
+        "provisioning-cei-chain",
     }
 
     # 每个 member 的 skills 子集正确
@@ -1262,12 +1307,17 @@ def test_create_team_structure():
                 "insight_reflect",
                 "insight_report",
             }
-        elif m.name == "provisioning_wifi":
+        elif m.name == "provisioning-wifi":
             assert skill_names == {"wifi_simulation"}
-        elif m.name == "provisioning_delivery":
-            assert skill_names == {"differentiated_delivery"}
-        elif m.name == "provisioning_cei_chain":
-            assert skill_names == {"cei_pipeline", "fault_diagnosis", "remote_optimization"}
+        elif m.name == "provisioning-delivery":
+            assert skill_names == {"experience_assurance"}
+        elif m.name == "provisioning-cei-chain":
+            assert skill_names == {
+                "cei_pipeline",
+                "cei_score_query",
+                "fault_diagnosis",
+                "remote_optimization",
+            }
 
 
 # ============================================================================

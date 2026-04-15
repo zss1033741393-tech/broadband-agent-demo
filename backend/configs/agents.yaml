@@ -4,7 +4,7 @@
 #   team  — Team leader (Orchestrator) 配置
 #   agents — 5 个 SubAgent (1 决策型 Planning + 1 决策型 Insight + 3 执行型 Provisioning 实例)
 #
-# agno Team 不支持运行时动态添加 member，因此预声明 3 个 Provisioning 实例覆盖场景 1 的并行需求。
+# agno Team 不支持运行时动态添加 member，因此预声明 3 个 Provisioning 实例；Orchestrator 按序串行派发。
 
 team:
   name: home-broadband-team
@@ -40,7 +40,7 @@ agents:
       max_turns: 10
 
   # ─── 执行型 Agent (3 个预声明实例，共享 provisioning.md) ───
-  provisioning_wifi:
+  provisioning-wifi:
     prompt: prompts/provisioning.md
     description: "WIFI 仿真执行专家：驱动户型图识别→热力图→RSSI 采集→选点对比 4 步流水线"
     skills:
@@ -48,19 +48,20 @@ agents:
     memory:
       max_turns: 10
 
-  provisioning_delivery:
+  provisioning-delivery:
     prompt: prompts/provisioning.md
-    description: "差异化承载执行专家：切片配置与应用白名单 (Appflow / 抖音切片等)"
+    description: "差异化承载执行专家：切片配置与应用白名单 (Appflow / 抖音切片等)，底层调用 FAN 网络切片服务 experience_assurance 接口"
     skills:
-      - differentiated_delivery
+      - experience_assurance
     memory:
       max_turns: 10
 
-  provisioning_cei_chain:
+  provisioning-cei-chain:
     prompt: prompts/provisioning.md
-    description: "体验保障链执行专家：CEI 权重配置→（中间态 mock 评分）→故障诊断→远程闭环的条件串行 workflow"
+    description: "体验保障链执行专家：CEI 权重配置 → CEI 评分回采 → 故障诊断 → 远程闭环的顺序串行 workflow，每步基于上一步上下文自适应推导参数"
     skills:
       - cei_pipeline
+      - cei_score_query
       - fault_diagnosis
       - remote_optimization
     memory:

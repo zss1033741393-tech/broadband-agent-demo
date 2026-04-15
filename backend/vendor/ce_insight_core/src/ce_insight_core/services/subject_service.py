@@ -1,6 +1,6 @@
 """
 三元组数据查询服务。
-外网使用 cei_query_mock，内网部署时只需改两行 import。
+使用内网 cei_query 接口；cei_query_mock 保留供离线 / 无内网环境回退。
 """
 
 import logging
@@ -8,13 +8,12 @@ import logging
 import numpy as np
 import pandas as pd
 
-# --- 外网/内网切换点：改这两行即可 ---
-from ce_insight_core.cei_query_mock.api import query_subject_from_single_table
-from ce_insight_core.cei_query_mock.query.models import InsightSubspaceApiModel
+from cei_query.api import query_subject_from_single_table
+from cei_query.query.models import InsightSubspace as InsightSubspaceApiModel
 
-# 内网部署时换为：
-# from cei_query.api import query_subject_from_single_table
-# from cei_query.query.models import InsightSubspace as InsightSubspaceApiModel
+# 外网/离线回退（保留，不删除）：
+# from ce_insight_core.cei_query_mock.api import query_subject_from_single_table
+# from ce_insight_core.cei_query_mock.query.models import InsightSubspaceApiModel
 
 logger = logging.getLogger(__name__)
 
@@ -115,19 +114,75 @@ def _clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _auto_convert_timestamps(df: pd.DataFrame) -> pd.DataFrame:
-    """自动将可能的时间戳数值列转换为 datetime"""
+    """
+    自动检测疑似时间戳的数值列并就地转换为 datetime。
+
+    检测策略（值域驱动，不依赖列名）：
+    1. 必须是数值类型
+    2. **整列**的 min 和 max 都落在合法时间戳区间内（2000-01-01 ~ 2100-01-01）
+    3. 自动识别 s / ms / us 三档单位
+    4. 转换后年份再做一次 sanity check（必须落在 2000-2100）
+
+    这种策略对列名零依赖，`time_id` / `create_time_ms` / `event_ts` / `hour_id`
+    等任意命名都能识别；同时业务字段如 `CEI_score`（1-100）、`bipHighCnt`（小数值）
+    因数值范围不在时间戳区间内而被跳过，不会误伤。
+
+    向后兼容性：转换是 **就地替换**，序列化时 datetime 会通过 `_json_default` 的
+    `isoformat()` 转为 ISO 字符串（如 "2025-04-16T13:05:00"），前端拿到的是
+    可读时间字符串而非整数毫秒，请确认前端不依赖整数时间戳做数值运算。
+    """
+    # 时间戳合法范围：2000-01-01 (946684800) ~ 2100-01-01 (4102444800)
+    S_MIN, S_MAX = 946684800, 4102444800
+    MS_MIN, MS_MAX = S_MIN * 1000, S_MAX * 1000
+    US_MIN, US_MAX = S_MIN * 1_000_000, S_MAX * 1_000_000
+
     for col in df.columns:
-        if col in ("date", "timestamp", "time", "create_time"):
-            if not pd.api.types.is_datetime64_any_dtype(df[col]):
-                try:
-                    sample = df[col].dropna().iloc[0] if len(df[col].dropna()) > 0 else None
-                    if sample is not None and isinstance(sample, (int, float, np.integer)):
-                        if sample > 1e15:
-                            df[col] = pd.to_datetime(df[col], unit="us")
-                        elif sample > 1e12:
-                            df[col] = pd.to_datetime(df[col], unit="ms")
-                        elif sample > 1e9:
-                            df[col] = pd.to_datetime(df[col], unit="s")
-                except Exception:
-                    pass
+        # 跳过已是 datetime 的列
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            continue
+        # 必须是数值列
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+
+        non_null = df[col].dropna()
+        if non_null.empty:
+            continue
+
+        try:
+            min_val = float(non_null.min())
+            max_val = float(non_null.max())
+        except (TypeError, ValueError):
+            continue
+
+        # 判断单位（min 和 max 必须都在同一档范围内才认）
+        if S_MIN <= min_val and max_val <= S_MAX:
+            unit = "s"
+        elif MS_MIN <= min_val and max_val <= MS_MAX:
+            unit = "ms"
+        elif US_MIN <= min_val and max_val <= US_MAX:
+            unit = "us"
+        else:
+            continue
+
+        # 尝试转换
+        try:
+            converted = pd.to_datetime(df[col], unit=unit, errors="coerce")
+        except (ValueError, OverflowError) as e:
+            logger.debug("时间戳列 %s 转换失败: %s", col, e)
+            continue
+
+        # 二次年份 sanity check
+        years = converted.dt.year.dropna()
+        if years.empty or int(years.min()) < 2000 or int(years.max()) > 2100:
+            continue
+
+        df[col] = converted
+        logger.info(
+            "时间戳列已转换: %s (unit=%s, 范围 %s ~ %s)",
+            col,
+            unit,
+            converted.min(),
+            converted.max(),
+        )
+
     return df

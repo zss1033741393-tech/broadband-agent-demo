@@ -128,6 +128,7 @@ class OutlierDetectionStrategy(InsightStrategy):
         from ce_insight_core.services.insight_strategy.chart_style import (
             BLUE,
             HIGHLIGHT_RED,
+            ORANGE,
             base_title,
             base_tooltip,
             truncate_labels,
@@ -179,6 +180,16 @@ class OutlierDetectionStrategy(InsightStrategy):
                     "data": normal_data,
                     "itemStyle": {"color": BLUE, "opacity": 0.4},
                     "symbolSize": 5,
+                    "markLine": {
+                        "data": [
+                            {"yAxis": round(float(real_upper), 4), "name": "上限"},
+                            {"yAxis": round(float(real_lower), 4), "name": "下限"},
+                        ],
+                        "lineStyle": {"type": "dashed", "color": ORANGE, "width": 1.5},
+                        "label": {"show": True, "formatter": "{b}: {c}", "fontSize": 10},
+                        "symbol": "none",
+                        "silent": True,
+                    },
                 },
                 {
                     "name": f"异常点 ({len(outliers)})",
@@ -188,8 +199,4 @@ class OutlierDetectionStrategy(InsightStrategy):
                     "symbolSize": 8,
                 },
             ],
-            "markLine_data": {
-                "y_upper": round(float(real_upper), 4),
-                "y_lower": round(float(real_lower), 4),
-            },
         }

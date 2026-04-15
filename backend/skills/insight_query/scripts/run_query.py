@@ -30,6 +30,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Windows 兼容：保留默认编码（Linux/Mac 是 UTF-8，Windows 是 GBK），
+# 遇到不可编码字符（如 emoji）替换为 ? 而不是抛 UnicodeEncodeError 崩溃
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+
 try:
     import ce_insight_core as cic
 except ImportError as exc:
@@ -120,6 +125,10 @@ def run(payload_json: str) -> str:
         fixed_config, fix_warnings = cic.fix_query_config(query_config, table_level=table_level)
     except Exception as exc:
         return _err(f"fix_query_config 失败: {type(exc).__name__}: {exc}")
+
+    # 兜底：fixer 意外清空 measures 时还原为原始值，确保 SQL 带聚合列
+    if not fixed_config.get("measures"):
+        fixed_config["measures"] = query_config.get("measures", [])
 
     try:
         dfs = cic.query_subject_pandas(fixed_config, data_path)

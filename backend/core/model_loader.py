@@ -2,8 +2,9 @@
 
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
+import httpx
 import yaml
 from loguru import logger
 
@@ -16,6 +17,52 @@ def load_model_config(config_path: Path = _CONFIG_PATH) -> Dict[str, Any]:
         cfg = yaml.safe_load(f)
     logger.info(f"模型配置加载成功: provider={cfg.get('provider')}, model={cfg.get('model')}")
     return cfg
+
+
+def _build_http_client(config: Dict[str, Any]) -> Optional[httpx.AsyncClient]:
+    """根据 model.yaml 的 SSL / 代理配置构造自定义 httpx.AsyncClient。
+
+    触发条件（任一满足时返回自定义 client，否则返回 None 让 agno 使用默认 client）：
+    - `verify_ssl: false` — 禁用 SSL 证书验证（企业 TLS 拦截 / 自签证书环境常见）
+    - `ca_bundle: <path>` — 指向自定义 CA 证书文件
+    - `proxy: <url>` — 配置 HTTP/HTTPS 代理
+    - `trust_env: false` — 忽略环境变量里的代理配置
+
+    默认行为（以上字段都未设置时）保持和原来完全一致：返回 None，agno 自己建 client。
+    """
+    verify_ssl = config.get("verify_ssl", True)
+    ca_bundle = config.get("ca_bundle") or None
+    proxy = config.get("proxy") or None
+    trust_env = config.get("trust_env", True)
+    timeout = config.get("timeout", 60)
+
+    # 无任何自定义 → 返回 None，走 agno 默认 client
+    if verify_ssl is True and not ca_bundle and not proxy and trust_env is True:
+        return None
+
+    # verify 参数：优先 ca_bundle（显式信任文件）→ 其次 verify_ssl（布尔）
+    if ca_bundle:
+        verify_arg: Any = ca_bundle
+    else:
+        verify_arg = bool(verify_ssl)
+
+    client = httpx.AsyncClient(
+        verify=verify_arg,
+        proxy=proxy,
+        trust_env=trust_env,
+        timeout=timeout,
+    )
+
+    logger.warning(
+        "model_loader: 使用自定义 httpx.AsyncClient — "
+        f"verify={verify_arg!r}, proxy={proxy!r}, trust_env={trust_env}"
+    )
+    if verify_arg is False:
+        logger.warning(
+            "model_loader: SSL 证书验证已禁用（verify_ssl=false）。"
+            "仅适用于企业内网 TLS 拦截 / 自签证书场景，生产环境请使用 ca_bundle 指向真实证书。"
+        )
+    return client
 
 
 def create_model(config: Dict[str, Any] = None):
@@ -34,7 +81,7 @@ def create_model(config: Dict[str, Any] = None):
         api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
         api_key = os.environ.get(api_key_env, "")
 
-    common_params = {
+    common_params: Dict[str, Any] = {
         "id": config.get("model", "gpt-4o-mini"),
         "api_key": api_key or None,
         "temperature": config.get("temperature", 0.3),
@@ -44,6 +91,11 @@ def create_model(config: Dict[str, Any] = None):
 
     # 自定义 role_map（用于不支持 developer 角色的 OpenAI 兼容 API）
     role_map = config.get("role_map")
+
+    # 自定义 httpx.AsyncClient（SSL / 代理 / CA bundle）
+    http_client = _build_http_client(config)
+    if http_client is not None:
+        common_params["http_client"] = http_client
 
     if provider == "openrouter":
         from agno.models.openrouter import OpenRouter

@@ -17,7 +17,6 @@ from typing import Any
 
 from loguru import logger
 
-
 # 预览长度上限（超长 data 截断，避免 sse.log 爆炸）
 _PREVIEW_MAX = 800
 
@@ -34,7 +33,9 @@ def format_sse(event: str, data: Any) -> str:
     payload = json.dumps(data, ensure_ascii=False)
 
     # 高频事件（thinking/text delta）降级到 DEBUG；里程碑事件走 INFO
-    milestone = event in {"step_start", "step_end", "sub_step", "render", "done", "error"}
+    milestone = event in {
+        "step_start", "step_end", "sub_step", "render", "report", "done", "error",
+    }
     level = "INFO" if milestone else "DEBUG"
     logger.bind(channel="sse").log(level, f"→ {event} {_preview(payload)}")
 

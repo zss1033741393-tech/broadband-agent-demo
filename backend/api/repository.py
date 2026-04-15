@@ -18,11 +18,11 @@ from loguru import logger
 
 from api.models import (
     Conversation,
-    Message,
-    Step,
-    RenderBlock,
-    InsightRenderBlock,
     ImageRenderBlock,
+    InsightRenderBlock,
+    Message,
+    RenderBlock,
+    Step,
 )
 
 _DB_PATH = Path(__file__).resolve().parents[1] / "data" / "api.db"
@@ -173,7 +173,9 @@ async def insert_user_message(conv_id: str, content: str) -> Message:
     )
     async with _get_conn() as conn:
         await conn.execute(
-            "INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO messages (id, conversation_id, role, content, thinking_content, "
+            "thinking_duration_sec, steps, render_blocks, created_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (msg.id, conv_id, "user", content, "", 0, "[]", "[]", now, "done"),
         )
         await _update_conversation_meta(conn, conv_id, content)
@@ -198,7 +200,9 @@ async def insert_assistant_message(
 
     async with _get_conn() as conn:
         await conn.execute(
-            "INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO messages (id, conversation_id, role, content, thinking_content, "
+            "thinking_duration_sec, steps, render_blocks, created_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (msg_id, conv_id, "assistant", content, thinking_content,
              thinking_duration_sec, steps_json, render_json, now, status),
         )
@@ -235,7 +239,31 @@ def _row_to_message(row: aiosqlite.Row) -> Message:
     steps_raw = json.loads(row["steps"] or "[]")
     render_raw = json.loads(row["render_blocks"] or "[]")
 
-    steps = [Step(**s) for s in steps_raw]
+    # 老数据兼容：早期 SubStep 契约与现行不同（曾有 result 字段、缺 scriptPath 等）。
+    # 逐条过 Step.model_validate 时对缺失字段做宽容处理，单条失败不影响整条消息。
+    steps: List[Step] = []
+    for s in steps_raw:
+        try:
+            steps.append(Step(**s))
+        except Exception:
+            logger.warning(
+                f"Step 校验失败，降级展示（step_id={s.get('stepId')}）"
+            )
+            # 降级：保留 stepId/title/textContent，subSteps 过滤掉无法解析的条目
+            safe_subs = []
+            for sub in s.get("subSteps") or []:
+                try:
+                    safe_subs.append(sub if isinstance(sub, dict) else {})
+                except Exception:
+                    pass
+            steps.append(Step(
+                stepId=s.get("stepId", ""),
+                title=s.get("title", ""),
+                subSteps=[],  # 无法还原时留空，UI 自会降级显示"暂无内容"
+                textContent=s.get("textContent", ""),
+            ))
+            # safe_subs 仅保留原始 dict 供调试日志，未接入 Message 结构
+            _ = safe_subs
     render_blocks: List[RenderBlock] = []
     for rb in render_raw:
         if rb.get("renderType") == "insight":

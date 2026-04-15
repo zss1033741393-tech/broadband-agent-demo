@@ -1,6 +1,6 @@
 # Plan Design Few-Shot 样例
 
-以下三组样例覆盖场景 1（完整方案）、场景 2（稀疏方案）、场景 2 变体（仅 WIFI 启用）。
+以下三组样例覆盖场景 1（完整方案）、场景 2（稀疏方案）、场景 2 变体（仅 AP补点启用）。
 
 ---
 
@@ -21,40 +21,40 @@
 
 **产出方案**:
 
-```markdown
-## WIFI 仿真方案
-**启用**: true
+```text
+AP补点推荐：
+    WIFI信号仿真：True
+    应用卡顿仿真：True
+    AP补点推荐：True
 
-## 差异化承载方案
-**启用**: true
-- 切片类型: application_slice
-- 保障应用: 抖音
-- 白名单: 抖音域名/IP, douyin.com, *.douyinstatic.com
-- 带宽保障 (Mbps): 50
+CEI体验感知：
+    CEI模型：直播模型
+    CEI粒度：分钟级
+    CEI阈值：70分
 
-## CEI 配置方案
-**启用**: true
-- 权重配置: ServiceQualityWeight:40,WiFiNetworkWeight:25,StabilityWeight:15,STAKPIWeight:5,GatewayKPIWeight:5,RateWeight:5,ODNWeight:3,OLTKPIWeight:2
+故障诊断：
+    诊断场景：直播卡顿
+    偶发卡顿定界：True
 
-## 故障诊断方案
-**启用**: true
-- 故障树: 开启
-- 白名单规则: ["偶发卡顿"]
-- 严重性阈值: warning
+远程优化：
+    远程优化触发时间：闲时
+    远程WIFI信道切换：True
+    远程网关重启：False
+    远程WIFI功率调优：True
 
-## 远程闭环处置方案
-**启用**: true
-- 执行策略: idle
-- 整改方式: [2, 3, 4]
-- 执行时间: —
+差异化承载：
+    差异化wifi切片：True
+    保障应用：抖音
+    APP Flow：False
+    应用策略：assurance-app-slice
 ```
 
 **关键业务规则体现**:
-- 直播套餐 + 卖场走播 → CEI 权重大幅倾斜业务质量 (`ServiceQualityWeight:40`) 和 Wi-Fi 网络 (`WiFiNetworkWeight:25`)，压缩 ODN/OLT/网关层权重（走播场景故障源集中在前端业务）
-- 卖场走播 → 远程整改方式 `[2,3,4]`（信道+功率，**不含重启**，避免打断直播业务）
-- 直播套餐 → 远程执行策略 `idle`（闲时下发，避开 18:00-22:00 保障时段）
-- 投诉历史 = true → 严重性阈值升级为 warning
-- 直播场景 → 故障白名单加入"偶发卡顿"
+- 直播套餐 + 卖场走播 → CEI 模型选"直播模型"（Provisioning 按预设表翻译为 ServiceQualityWeight:40 权重 CSV）
+- 保障应用抖音 + 直播套餐 → 诊断场景：直播卡顿
+- 卖场走播（走动业务，忌重启）→ `远程网关重启：False`，仅做信道切换 + 功率调优
+- 直播套餐（有保障时段）→ 触发时间：闲时
+- 单用户应用切片 → `APP Flow：False`，`应用策略：assurance-app-slice`
 
 ---
 
@@ -73,61 +73,97 @@
 
 **产出方案**（稀疏方案，只启用差异化承载）:
 
-```markdown
-## WIFI 仿真方案
-**启用**: false
-_跳过原因: 区域性 PON 拥塞问题，与单用户 WIFI 无关_
+```text
+AP补点推荐：
+# 跳过原因: 区域性 PON 拥塞，与单用户 WIFI 覆盖无关
+    WIFI信号仿真：False
+    应用卡顿仿真：False
+    AP补点推荐：False
 
-## 差异化承载方案
-**启用**: true
-- 切片类型: appflow_traffic_shaping
-- 保障应用: 视频类流量(综合)
-- 白名单: 无
-- 带宽保障 (Mbps): 30
+CEI体验感知：
+# 跳过原因: 已通过区域性数据洞察定位，无需单用户 CEI 采集
+    CEI模型：无
+    CEI粒度：分钟级
+    CEI阈值：无
 
-## CEI 配置方案
-**启用**: false
-_跳过原因: 问题已通过区域性数据洞察定位，无需单用户 CEI 采集_
+故障诊断：
+# 跳过原因: 已确认为拥塞问题，非设备故障
+    诊断场景：无
+    偶发卡顿定界：False
 
-## 故障诊断方案
-**启用**: false
-_跳过原因: 已确认为拥塞问题，非设备故障_
+远程优化：
+# 跳过原因: 区域性拥塞需容量扩展，远程闭环无法解决
+    远程优化触发时间：无
+    远程WIFI信道切换：False
+    远程网关重启：False
+    远程WIFI功率调优：False
 
-## 远程闭环处置方案
-**启用**: false
-_跳过原因: 区域性拥塞需容量扩展，远程闭环无法解决_
+差异化承载：
+    差异化wifi切片：True
+    保障应用：视频类流量
+    APP Flow：True
+    应用策略：limit-speed-1m
 ```
+
+**关键业务规则体现**:
+- 区域性 PON 拥塞 → 仅启用差异化承载段（`差异化wifi切片：True`），其余四段全部 False
+- PON 拥塞整形场景 → `APP Flow：True`（流量成型），`应用策略：limit-speed-1m`
+- 其余三段均写 `# 跳过原因:` 注释说明
 
 ---
 
-## 样例 3 — 场景 3 变体：单点"查看 WIFI 覆盖"路径
+## 样例 3 — 场景 2 变体：WIFI 覆盖弱（Insight 回流）
 
-**说明**: 场景 3 由 Orchestrator 直达 Provisioning，**通常不经过 plan_design**。如果用户的需求跨越单点边界（例如"顺便做个 CEI 配置"），PlanningAgent 才会介入，此时产出方案也是稀疏结构：
+**输入画像（含 insight 摘要）**:
+```json
+{
+  "scope_indicator": "single_user",
+  "issue_type": "wifi_coverage",
+  "complaint_keyword": "信号弱",
+  "guarantee_target": "家庭网络"
+}
+```
 
-```markdown
-## WIFI 仿真方案
-**启用**: true
+**产出方案**（仅 AP补点推荐启用）:
 
-## 差异化承载方案
-**启用**: false
-_跳过原因: 用户仅关注 WIFI 覆盖_
+```text
+AP补点推荐：
+    WIFI信号仿真：True
+    应用卡顿仿真：True
+    AP补点推荐：True
 
-## CEI 配置方案
-**启用**: false
-_跳过原因: 用户仅关注 WIFI 覆盖_
+CEI体验感知：
+# 跳过原因: 用户仅关注 WIFI 覆盖问题
+    CEI模型：无
+    CEI粒度：分钟级
+    CEI阈值：无
 
-## 故障诊断方案
-**启用**: false
+故障诊断：
+# 跳过原因: 用户仅关注 WIFI 覆盖问题
+    诊断场景：无
+    偶发卡顿定界：False
 
-## 远程闭环处置方案
-**启用**: false
+远程优化：
+# 跳过原因: 用户仅关注 WIFI 覆盖问题
+    远程优化触发时间：无
+    远程WIFI信道切换：False
+    远程网关重启：False
+    远程WIFI功率调优：False
+
+差异化承载：
+# 跳过原因: 用户仅关注 WIFI 覆盖问题
+    差异化wifi切片：False
+    保障应用：无
+    APP Flow：False
+    应用策略：无
 ```
 
 ---
 
 ## 常见错误避免
 
-1. **缺少 `**启用**: true/false` 头** → Orchestrator 无法拆分派发
-2. **字段名错写**（如"权重"代替"权重配置"，或 CSV 格式写错） → ProvisioningAgent 无法按 schema 解析
-3. **禁用段不写跳过原因** → 用户体验差，也失去可追溯性
-4. **业务默认值照搬所有段**（区域性问题也启用 CEI 单点采集） → 违反稀疏方案原则
+1. **使用旧的 `## 段落标题` + `**启用**: true/false` 格式** → 已废弃，Orchestrator 无法识别
+2. **子字段缩进不正确**（未用 4 空格）→ Orchestrator 段落切分异常
+3. **禁用段不写 `# 跳过原因`** → 用户体验差，可追溯性差
+4. **区域性问题也全部启用**（如 PON 拥塞还做 CEI 单点采集）→ 违反稀疏方案原则
+5. **CEI模型字段直接写 CSV 权重**（如 `ServiceQualityWeight:40,...`）→ 应写模型名（如 `直播模型`），由 Provisioning 层查预设表翻译

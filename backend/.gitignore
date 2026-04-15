@@ -229,3 +229,6 @@ skills/wifi_simulation/models/*.pth
 
 # uv 工作区产物 (如有 uv workspace 文件)
 *.uvworkspace
+
+# Claude Code 本地设置 — 含 PAT 等凭证,永不提交
+.claude/settings.local.json

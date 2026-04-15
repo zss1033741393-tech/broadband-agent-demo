@@ -21,7 +21,204 @@
 
 ---
 
+## 0. 调用约定铁律（违反 = 立即失败，零容忍）
+
+本节 6 条规则是所有 Skill 调用的**绝对前提**。**优先级高于本文档所有其他章节**——
+后面所有阶段的细节都建立在这 6 条之上。任何违反都会导致工具调用失败、前端渲染错误，
+或整个洞察任务前功尽弃。
+
+### 铁律 1 · args 必须是 List[str]，每个元素是序列化后的 JSON 字符串
+
+agno 的 `get_skill_script` 用 Pydantic 强校验 `args` 类型为 `List[str]`。
+**每次调用前必须按以下 4 步构造，不得跳过任何一步**：
+
+```
+第 1 步：构造 dict
+    payload = {"insight_type": "OutstandingMin", "query_config": {...}, ...}
+
+第 2 步：序列化为字符串（⚠️ 最容易被跳过的一步）
+    payload_str = json.dumps(payload)
+    # payload_str 现在是一个 str，例如 '{"insight_type": "OutstandingMin", ...}'
+
+第 3 步：放入 list
+    args = [payload_str]
+    # args 是 list，唯一的元素是 str
+
+第 4 步：调用前检查
+    # args 应该是 ["..."]，外层是方括号，内层是引号包裹的 JSON 字符串
+    # 如果 args 是 "{...}" 或 {...} 或 '[...]' ← 全部错误，回第 1 步
+```
+
+✅ **正确示例**：
+```
+get_skill_script(
+    "insight_query",
+    "run_insight.py",
+    execute=True,
+    args=['{"insight_type": "OutstandingMin", "query_config": {...}, "table_level": "day"}']
+)
+```
+
+❌ **错误 1 → Pydantic 报 `args  Input should be a valid list`**：
+```
+args='["{\"insight_type\":\"OutstandingMin\"...}"]'
+```
+args 变成了 str 不是 list。**修复：去掉外层引号，改成 Python list 字面量**。
+
+❌ **错误 2 → 双重编码，元素带多余转义**：
+```
+args=['"{\"insight_type\":...}"']
+```
+元素被 JSON 编码了第二次。**修复：直接 json.dumps(payload) 不加引号包裹**。
+
+❌ **错误 3 → Pydantic 报 `args.0  Input should be a valid string`**：
+```
+args=[{"table": "day", "focus_dimensions": []}]
+```
+元素是 dict 对象，没有执行第 2 步。**修复：补做 json.dumps，把 dict 变成 str 再放进 list**。
+
+⚠️ **看到 Pydantic 报错后立即按上面 4 步重新构造，不要只调整括号/引号**。stderr 里的 SQL 日志和 DEBUG 行与 args 格式无关，直接忽略。
+
+### 铁律 2 · insight_type 必须从下面 12 个白名单中选
+
+`run_insight.py` 的 `insight_type` 参数**只接受**这 12 个值，其他任何值都会被
+ce_insight_core 的 INSIGHT_MAP 拒绝并返回 `significance=0` + 错误描述。
+
+| 类别 | insight_type | 速记 |
+|---|---|---|
+| 排序对比 | `OutstandingMin` | 找最低的 group（单 measure）；多 measure + 多 group → 矩阵模式，每个 group 找各自最差的维度 |
+| | `OutstandingMax` | 找最高的 group |
+| | `OutstandingTop2` | 找前两名 |
+| 时序 | `Trend` | 上升/下降趋势 |
+| | `Seasonality` | 周期性 |
+| | `ChangePoint` | 变点检测 |
+| 分布 | `OutlierDetection` | 异常点检测 |
+| | `Evenness` | 均匀度（基尼系数） |
+| 关系 | `Correlation` | 两指标相关（**正好 2** measures） |
+| | `CrossMeasureCorrelation` | 多指标相关（**≥ 3** measures） |
+| | `Clustering` | KMeans 聚类 |
+| 归因 | `Attribution` | 各 group 对均值的贡献 |
+
+❌ **禁止发明任何不在此列表的 insight_type**。常见错误：`Distribution`、`Comparison`、
+`Statistics`、`TopN`、`Aggregate` — 全部不存在，全部会被拒。
+
+如果用户的需求**这 12 个都满足不了**，必须用 `insight_nl2code` skill 自己写 pandas 代码
+兜底，**不要造一个 insight_type 名字让脚本去识别** — 脚本不认识就直接错。
+
+详细 measures 数量约束、最小数据量、显著性公式见
+`insight_decompose/references/insight_catalog.md`。
+
+### 铁律 3 · list_schema 失败时必须 ABORT，禁止瞎猜字段
+
+调用 `list_schema.py` 后判断结果：
+- 返回 `status="ok"` 且 `all_fields` 非空 → 正常使用真实字段名
+- 返回 `status="error"` / 脚本崩溃 / `all_fields=[]` → **立即 ABORT 当前 Phase 的 decompose**
+
+ABORT 时的正确做法：
+1. 不要再调任何 `run_insight` / `run_nl2code`
+2. 输出一个 `<!--event:reflect-->` 事件，`choice="D"`，`reason="schema 查询失败，跳过本 Phase"`
+3. 跳到下一个 Phase，或如果是最后一个 Phase 则进入 Report 阶段
+
+❌ **禁止行为**：
+- "我可以根据天表 schema 推断分钟表的字段" — 字段名完全不同，**必崩**
+- "我猜分钟表有 hour / time / minute 这种字段" — 不存在，会触发 query_fixer 错误兜底，
+  把你的 breakdown 换成 portUuid，结果完全错误
+- 复用上一个 Phase 的字段名当下一个 Phase 的字段
+
+### 铁律 4 · dimensions 必须用标准三元组格式
+
+参与下钻 / 过滤的 `query_config.dimensions` 字段**只接受**这一种格式：
+
+```json
+"dimensions": [[
+  {
+    "dimension": {"name": "portUuid", "type": "DISCRETE"},
+    "conditions": [{"oper": "IN", "values": ["uuid-a", "uuid-b"]}]
+  }
+]]
+```
+
+❌ 以下"简写格式"全部**不被支持**，会被 fix_query_config 静默清空为 `[[]]`，导致过滤
+完全失效：
+```json
+"dimensions": [["portUuid", "IN", ["uuid-a"]]]
+"dimensions": [{"name": "portUuid", "oper": "IN", "values": [...]}]
+"dimensions": ["portUuid:IN:uuid-a"]
+```
+
+**判断过滤是否生效**：调脚本后看 `data_shape`。如果行数和全量数据一样多（如 3857 行），
+说明过滤失效，回去检查 dimensions 格式。
+
+无下钻需求时直接用 `"dimensions": [[]]`（空列表，**不是** `[]` 或 `null`）。
+
+### 铁律 5 · 事件 marker 后只跟一句话指针，禁止重复表格
+
+`<!--event:xxx-->` JSON 会被前端**自动渲染为结构化表格**。输出事件后**只允许**跟一句话
+进展指针描述当前状态，**禁止**再手写 Markdown 表格、列表或任何重复展示同一数据的内容。
+
+✅ 正确：
+```
+<!--event:decompose_result-->
+{"phase_id": 1, "total_steps": 3, ...}
+
+现在开始执行 Phase 1 ...
+```
+
+❌ 错误（前端会渲染两次同一份数据）：
+```
+<!--event:decompose_result-->
+{"phase_id": 1, "total_steps": 3, ...}
+
+## 📊 步骤分解完成
+| 步骤 | 类型 | 目的 |
+|---|---|---|
+| Step 1 | OutstandingMin | 找最低 |
+...
+```
+
+### 铁律 6 · 脚本调用失败 ≠ 任务失败，必须按表兜底
+
+脚本调用失败（Pydantic 校验错 / `status="error"` / 脚本崩溃）时，**禁止直接停止任务**。
+每种失败有特定的兜底动作：
+
+| 失败的脚本 | 兜底动作 |
+|---|---|
+| `list_schema.py` | ABORT 当前 Phase decompose（见铁律 3） |
+| `run_insight.py` | 用更简单参数重试 1 次；仍失败则 step_result `status="error"` 标记后继续下一 step |
+| `run_nl2code.py` | 修正代码后重试 1 次；仍失败标记 error 继续 |
+| **`render_report.py`** | **必须立即在 assistant 文本里用 Markdown 直接输出完整报告**，含所有 Phase 的 step 摘要 + summary JSON 代码块，**绝对不允许**只输出错误信息就停止。手写时：每个 Phase 前加 `---` 分界，每个有图的 step 描述后插入 `<!--chart:p{phase_id}s{step_id}-->`（如 Phase 1 Step 2 写 `<!--chart:p1s2-->`） |
+
+🔴 **特别强调 render_report 失败兜底**：用户花了 N 个 Phase 跑出来的所有结果都在你的
+context 里。渲染脚本崩了不代表分析白做了。**手写 Markdown 把所有 Phase 结果输出**是
+你最后的责任。
+
+---
+
 ## 2. 工作流全景（Plan → Phase 循环 → Report）
+
+### ⚡ 收到新消息时的第一步 — 先判断，再行动
+
+**每次收到用户消息，先做这个判断，再决定是否启动完整流程：**
+
+```
+对话中是否已有 <!--event:done--> ？
+  ├─ 否 → 正常启动 Plan → Execute → Report 完整流程
+  └─ 是 → 用户的问题是追问已有结果，还是全新的分析请求？
+           ├─ 追问（见 §9.1）→ 直接从 context 回答，禁止重新 Plan
+           └─ 新任务（用户明确要分析新问题）→ 启动新的完整流程
+```
+
+**追问的判断信号**（满足一个即可）：
+- 含"刚刚"、"上面"、"那些"、"这些"、"已有的"等引用词
+- 引用了报告里出现的具体实体（portUuid / gatewayMac 值、PON 口编号等）
+- 是对已有结果的再处理：**排序、筛选、比较、解释某一条、列出某类**
+
+**新任务的判断信号**（以下情况才重新 Plan）：
+- 用户明确提出新的分析目标（"分析一下 WiFi 的问题"、"看看分钟表数据"）
+- 用户询问的维度/指标在已有报告里完全没有出现
+- 用户明确说"重新分析"、"再跑一次"
+
+---
 
 流程**不是**线性 5 步，而是 **Plan (1 次) → [Decompose → Execute → Reflect] × N Phase → Report (1 次)**：
 
@@ -108,6 +305,7 @@ Report (1 次)
 - 每个 Phase 的 `table_level` 必须与后续字段匹配
 - `focus_dimensions` 留空除非用户明确指定维度；值取自 `Stability / ODN / Rate / Service / OLT / Gateway / STA / Wifi`
 - 🔴 **根因分析类任务必须完成所有规划的 Phase（通常 4 个），禁止中途跳过 L3/L4 直接出报告**。如果某步执行失败，用更简单的参数重试一次，而不是放弃整个 Phase
+- 🔴 **禁止在 Phase 与 Phase 之间停下询问用户是否继续**。MacroPlan 一旦规划完成，必须连续自动执行所有 Phase 直到 Report 输出完毕，再停下等待用户。中途弹出"请确认下一步"选项菜单属于严重违规
 
 ---
 
@@ -124,6 +322,12 @@ Report (1 次)
    )
    ```
    返回的 `schema_markdown` 会列出该维度的所有细化字段与 8 个得分字段。
+
+   🔴 **schema 查询失败处理**（按 §0 铁律 3 执行）：
+   - `status="ok"` 且 `all_fields` 非空 → 继续下一步
+   - `status="error"` / 脚本崩溃 / `all_fields=[]` → **立即 ABORT 本 Phase decompose**，
+     输出 `<!--event:reflect-->` `choice="D"` 跳过本 Phase，进入下一 Phase 或 Report
+   - **禁止**根据天表字段推断分钟表字段，**禁止**发明 `hour` / `time` 等不存在的字段名
 
 2. **加载洞察规则** → `get_skill_instructions("insight_decompose")` 后按需读：
    - `references/insight_catalog.md` — measures 数量约束 + 触发规则
@@ -192,18 +396,31 @@ Report (1 次)
 
 ## 5. 阶段 3 — Execute
 
-### 下钻过滤：构造 payload 时的 dimensions 格式
+### 调用前必读
 
-当需要基于 Phase 1 发现的 `found_entities` 做下钻查询时，payload 中的 `query_config.dimensions` **必须** 使用标准三元组格式。
+执行任何 step 之前，请先在心里确认这 3 件事，每一件都对应 §0 的一条铁律：
+
+1. **`args` 是 Python list 不是 string**（铁律 1）— 最常踩的坑
+2. **`insight_type` 在 12 个白名单内**（铁律 2）— 不要发明 `Distribution` / `TopN` 等
+3. **`dimensions` 用标准三元组格式**（铁律 4）— 简写格式会被静默清空
 
 **完整的带 IN 过滤的 run_insight 调用示例**：
 ```
 get_skill_script("insight_query", "run_insight.py", execute=True, args=[
-  '{"insight_type":"OutstandingMin","query_config":{"dimensions":[[{"dimension":{"name":"portUuid","type":"DISCRETE"},"conditions":[{"oper":"IN","values":["uuid-a","uuid-b","uuid-c"]}]}]],"breakdown":{"name":"portUuid","type":"UNORDERED"},"measures":[{"name":"ODN_score","aggr":"AVG"},{"name":"Wifi_score","aggr":"AVG"}]},"table_level":"day"}'
+  '{"insight_type":"OutstandingMin","query_config":{"dimensions":[[{"dimension":{"name":"portUuid","type":"DISCRETE"},"conditions":[{"oper":"IN","values":["uuid-a","uuid-b","uuid-c"]}]}]],"breakdown":{"name":"portUuid","type":"UNORDERED"},"measures":[{"name":"ODN_score","aggr":"AVG"},{"name":"Wifi_score","aggr":"AVG"}]},"table_level":"day","phase_id":2,"step_id":1,"phase_name":"L2-分维度归因","step_name":"ODN/WiFi 各维度对均值的贡献"}'
 ])
 ```
 
-🔴 **切记**：`dimensions` 格式错误是最常见的导致下钻失效的原因。如果你看到返回的 `data_shape` 行数跟全量数据一样多（如 3857 行），说明过滤没有生效，请检查 dimensions 格式。
+注意 `args` 是 **Python 列表**字面量 `[...]`（不是 `'[...]'` 字符串包裹），里面**一个**字符串元素，元素内容是 JSON。
+
+### 时序函数（Trend / Seasonality / ChangePoint）特殊约束
+
+这三个时序函数在 vendor 内部只用 `value_columns[0]`，**多余的 measures 会被静默丢弃**。
+另外它们对 `breakdown` 字段有严格要求：
+
+- **`breakdown.name` 必须是 `list_schema` 实际返回的时间字段**（如 `time_id` / `hour_id` / `date` 等，具体看 schema），**不能凭空发明 `hour` 这种字段名**——会被 query_fixer 错误替换成 portUuid，导致 ChangePoint 把 UUID 当时间序列分析，结果完全是垃圾
+- **`breakdown.type` 必须是 `ORDERED`**（不是 `UNORDERED`）
+- **想分析多个指标的时序趋势** → 拆成多个 step，每个 step 一个 measure；不要在一个 step 里塞多个 measures
 
 ### 🔴 事件输出（强制，不可跳过）
 
@@ -213,7 +430,7 @@ get_skill_script("insight_query", "run_insight.py", execute=True, args=[
 2. **`step_result`** — 每个 Step 脚本调用完成后输出，**必须包含 `phase_id` 和 `step_id`**：
    ```
    <!--event:step_result-->
-   {"phase_id": 1, "step_id": 1, "insight_type": "OutstandingMin", "significance": 0.73, "summary": "CEI_score 最小值出现在 288b6c71-...（54.08）", "found_entities": {"portUuid": ["288b6c71-...", "1c86d285-..."]}, "status": "ok"}
+   {"phase_id": 1, "step_id": 1, "phase_name": "L1-定位低分PON口", "step_name": "找出 CEI_score 最低的 PON 口", "insight_type": "OutstandingMin", "significance": 0.73, "summary": "CEI_score 最小值出现在 288b6c71-...（54.08）", "found_entities": {"portUuid": ["288b6c71-...", "1c86d285-..."]}, "status": "ok"}
    ```
 3. **`reflect`** — 每个 Phase 所有 Step 执行完后输出
 
@@ -242,7 +459,11 @@ get_skill_script(
 ```
 payload 的 `query_config` 就是 Step 里的三元组，`insight_type` 是 Step 的 `insight_types[0]`。
 `value_columns` / `group_column` 可省略（会从三元组推导）。
-🔴 **必须**在 payload 中携带 `"phase_id"` 和 `"step_id"`，脚本会原样透传到 stdout JSON，供前端关联 step_result 事件。
+🔴 **必须**在 payload 中携带以下 4 个字段，脚本会原样透传到 stdout JSON，供前端关联 step_result 事件：
+- `"phase_id"`：当前 Phase 编号（来自 MacroPlan）
+- `"step_id"`：当前 Step 编号
+- `"phase_name"`：当前 Phase 名称（来自 MacroPlan `phases[i].name`，如 `"L1-定位低分PON口"`）
+- `"step_name"`：当前 Step 目的（来自 Step 数组的 `rationale`，如 `"找出 CEI_score 最低的 PON 口"`）
 
 **NL2Code 步骤**（当现有 12 种函数无法满足时）：
 1. **你自己**按 `references/nl2code_spec.md` 写一段 pandas 代码（不要再委托给其他 LLM）
@@ -276,6 +497,7 @@ payload 的 `query_config` 就是 Step 里的三元组，`insight_type` 是 Step
 - `filter_data` / `found_entities` 必须原样保留（供后续 step 下钻 + summary JSON）
 - `chart_configs` 必须原样保留（包含完整 ECharts option JSON，由工具调用返回值自动展示）
 - 如果 `fix_warnings` 非空，必须在该 step 的 description 末尾加上警告提示
+- 🔴 **写 `description` 时，技术字段名必须中英文并列**，格式：`中文名(英文名)`，从本 Phase `list_schema.py` 的 `schema_markdown` 里取中文名。例如写"OLT接收光功率越限次数(oltRxPowerHighCnt)偏高"，禁止只写英文字段名
 
 ### Step 间的实体传递
 每步执行完后，从 `found_entities` 中取值；下一步如果需要下钻，就用这些真实值
@@ -304,6 +526,12 @@ payload 的 `query_config` 就是 Step 里的三元组，`insight_type` 是 Step
 
 ## 7. 阶段 5 — Report
 
+🔴 **本阶段失败兜底是头号优先级**（按 §0 铁律 6 执行）：用户花了 N 个 Phase 跑出来的所有
+分析结果都在你的 context 里。如果 `render_report.py` 调用失败（Pydantic 校验错 / args 类型错
+/ 脚本崩溃），**绝对不允许**只输出错误信息就停止。**必须**立即在 assistant 文本里用 Markdown
+直接输出**完整报告**，包含：所有 Phase 的 step 摘要表、关键发现、`<!--event:done-->` 事件、
+summary JSON 代码块。**渲染脚本崩了不代表分析白做了**。
+
 ### 流程
 
 Report 阶段只产出 **3 样东西**（不多不少）：
@@ -314,11 +542,27 @@ Report 阶段只产出 **3 样东西**（不多不少）：
 
 ### 步骤
 
-1. 汇总所有 Phase 的 Step 结果，构造 context JSON：
+1. 汇总所有 Phase 的 Step 结果，构造 context JSON。**对于执行期间 `chart_configs` 非空的步骤，在该步骤的 `description` 末尾追加 `\n\n[CHART:p{phase_id}s{step_id}]`**（占位符由你插入，模板不会自动添加）。
+
+   🔴 **占位符格式铁律（零容忍）**：
+   - 必须全大写 `CHART`，禁止 `chart` / `Chart`
+   - 必须用方括号 `[...]`，禁止圆括号 `(...)` 或花括号 `{...}`
+   - `p` 和 `s` 必须小写，后面紧跟整数，禁止空格、连字符、下划线
+   - ✅ 唯一合法格式：`[CHART:p1s1]`、`[CHART:p2s3]`
+   - ❌ 非法：`[chart:p1s1]`、`[CHART:p1-s1]`、`[CHART: p1s1]`、`(CHART:p1s1)`
    ```json
    {
      "title": "网络质量数据洞察报告",
      "goal": "<MacroPlan.goal>",
+     "direct_answer": "1-2 句直接回答用户问题，点明核心结论，例：该区域 CEI 低分主要由 PON-1 的 ODN 光路衰减导致，高峰时段 19:00-22:00 尤为明显。",
+     "key_findings": [
+       "🔴 最严重问题：PON-1 CEI 得分 54.08，低于均值 13.2 分，z-score=5.36",
+       "📊 主导维度：ODN_score 贡献度 43%，是拉低 CEI 均值的首要因素",
+       "📅 问题时段：分钟表数据显示高峰时段 19:00-22:00 异常集中",
+       "🔗 因果链路：RxPower 持续低于 -25dBm → BIP 误码率升高 → ODN_score 下滑"
+     ],
+     "root_cause_narrative": "根据 L3/L4 Phase 分析，根本原因是...（结合各 Phase 发现串联叙述，2-4 句）",
+     "impact_summary": "涉及 N 个 PON 口设备，影响约 X 个用户，CEI 均值从正常的 Y 下降至 Z（降幅 W%）。",
      "phases": [
        {
          "phase_id": 1,
@@ -329,17 +573,23 @@ Report 阶段只产出 **3 样东西**（不多不少）：
              "step_id": 1,
              "insight_type": "OutstandingMin",
              "significance": 0.41,
-             "description": "...",
-             "found_entities": {"portUuid": [...]},
-             "chart_configs": {...}
+             "description": "CEI 最低 PON 口为 288b6c71（54.08）\n\n[CHART:p1s1]",
+             "found_entities": {"portUuid": [...]}
            }
          ],
          "reflection": {"choice": "A", "reason": "..."}
        }
      ],
-     "summary": { ... 见下方 §8 交接契约 ... }
+     "summary": { "...": "见下方 §8 交接契约" }
    }
    ```
+
+   **新字段填写要求**：
+   - `direct_answer`：必填，1-2 句，直接点名结论，不要"本报告将..."这类套话
+   - `key_findings`：必填，3-5 条，每条带 emoji 前缀（🔴=严重/📊=指标/📅=时间/🔗=关联），有数据就带数字
+   - `root_cause_narrative`：L3/L4 Phase 有结果时必填，串联各 Phase 发现讲因果链；只有 L1/L2 时可省略
+   - `impact_summary`：必填，量化影响范围（设备数、用户数、分数降幅）
+   - 🔴 **所有字段中的技术字段名必须中英文并列**，格式：`中文名(英文名)`，禁止只输出英文字段名。例如"OLT接收光功率越限次数(oltRxPowerHighCnt)"、"BIP误码越限次数(bipHighCnt)"
 
 2. 调用：
    ```
@@ -423,12 +673,33 @@ Report 末尾**必须**以独立 JSON 代码块输出 summary 契约：
 
 ---
 
-## 9. 完成后停下
+## 9. 完成后停下 → 追问处理
 
 完成报告后，**停下等待用户下一步**：
 
 1. 输出报告 + summary JSON 代码块 + `<!--event:done-->`
 2. **禁止**自动进入方案设计或执行（后续流程不属于本 Agent 职责）
+
+### 9.1 用户追问已有结果（不触发新流程）
+
+`<!--event:done-->` 已输出后，如果判断为追问（见 §2 判断入口），
+**直接从 context 里的已有数据回答，绝对不启动新的 Plan→Execute→Report 流程**。
+
+**处理方式**：
+- 从 context 里的 `filter_data` / `found_entities` / `description` / `significance` 提取数据
+- 用 Markdown 表格或列表组织回答（如排序、筛选、比较）
+- **不输出任何 `<!--event:xxx-->` 标记**
+- **不调用任何 Skill 脚本**
+- 回答完继续等待下一条消息
+
+**追问示例及回答方式**：
+
+| 用户追问 | 处理方式 |
+|---|---|
+| "排序一下刚刚那些 PON 口的严重度" | 从各 step 的 `significance` + `found_entities` 取值，按 significance 降序输出 Markdown 表格 |
+| "上面 uuid-a 为什么 CEI 低" | 从该实体相关的 `description` 提取 attribution / root cause 字段解释 |
+| "哪些 PON 口同时在 L1 和 L2 都出现了" | 对 L1/L2 Phase 的 `found_entities.portUuid` 取交集后列出 |
+| "这几个设备的 significance 都超过 0.5 吗" | 对已有 step_result 按条件过滤后回答 |
 
 ---
 

@@ -89,4 +89,4 @@ ServiceQualityWeight:45,WiFiNetworkWeight:25,StabilityWeight:15,STAKPIWeight:5,G
 - ❌ **加和不等于 100**：虽然 Skill 不做本地校验，但 FAE 平台通常要求加和为 100，否则评分归一化会出偏。建议 PlanningAgent 生成时严格加和到 100。
 - ❌ **未知参数名**：`ServiceQuality` / `ServiceWeight` 等非精确拼写会被 FAE 拒绝。8 个参数名必须严格匹配本表大小写。
 - ❌ **数值越界**：单个维度超过 100 无意义；FAE 平台会拒绝。
-- ❌ **用权重表达"阈值"**：本接口仅配置评分各维度的权重组合，**不配置告警阈值**。告警阈值和评分查询是未来独立 Skill 的职责。
+- ❌ **用权重表达"阈值"**：本接口仅配置评分各维度的权重组合，**不配置告警阈值**。评分查询是 `cei_score_query` Skill 的职责，告警阈值由 FAE 平台策略侧处理。

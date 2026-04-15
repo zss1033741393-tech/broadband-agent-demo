@@ -14,9 +14,9 @@ _AGENT_DISPLAY_NAMES = {
     "home-broadband-team": "Orchestrator",
     "planning": "PlanningAgent",
     "insight": "InsightAgent",
-    "provisioning_wifi": "ProvisioningAgent (WIFI 仿真)",
-    "provisioning_delivery": "ProvisioningAgent (差异化承载)",
-    "provisioning_cei_chain": "ProvisioningAgent (体验保障链)",
+    "provisioning-wifi": "ProvisioningAgent (WIFI 仿真)",
+    "provisioning-delivery": "ProvisioningAgent (差异化承载)",
+    "provisioning-cei-chain": "ProvisioningAgent (体验保障链)",
 }
 
 # InsightAgent 输出协议标记正则 — 仅匹配标记头
@@ -42,7 +42,7 @@ def render_thinking(content: str, member: Optional[str] = None) -> Dict[str, Any
 
     Args:
         content: 思考内容文本
-        member: 发言 SubAgent 名字 (如 "provisioning_wifi"), 非空时标题会带上
+        member: 发言 SubAgent 名字 (如 "provisioning-wifi"), 非空时标题会带上
             中文显示名,便于并行执行时区分不同 member 的思考块。
     """
     title = "💭 思考"

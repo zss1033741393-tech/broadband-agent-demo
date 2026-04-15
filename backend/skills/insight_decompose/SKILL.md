@@ -41,26 +41,34 @@ payload：
 - `get_skill_reference("insight_decompose", "triple_schema.md")` — 三元组格式契约
 
 ### Step 3 — 生成 Step 数组
-在 assistant 消息中输出 Step 数组，带事件标记：
+
+输出分两层：
+
+**3a · 事件标记**（前端渲染用，仅含摘要字段，**不得**包含 `query_config`，避免 token 膨胀）：
+
+```
+<!--event:decompose_result-->
+{"phase_id": 1, "total_steps": 4, "steps": [{"step": 1, "insight_types": ["OutstandingMin"], "rationale": "找 CEI 最低值"}, {"step": 2, "insight_types": ["Attribution"], "rationale": "归因分析"}]}
+```
+
+事件 JSON 必填字段：`phase_id`、`total_steps`、`steps[]`，每个 step 含 `step`（编号）+ `insight_types`（字符串数组）+ `rationale`（一句话目的）。
+
+**3b · 内部完整 Step 数组**（不进事件，仅在 LLM context 内保留供 Execute 阶段调用）：
 
 ```json
-<!--event:decompose-->
-{
-  "phase_id": 1,
-  "steps": [
-    {
-      "step": 1,
-      "insight_types": ["OutstandingMin"],
-      "query_config": {
-        "dimensions": [[]],
-        "breakdown": {"name": "portUuid", "type": "UNORDERED"},
-        "measures": [{"name": "CEI_score", "aggr": "AVG"}]
-      },
-      "output_ref": "step1_output",
-      "rationale": "找出 CEI_score 最低的 PON 口"
-    }
-  ]
-}
+[
+  {
+    "step": 1,
+    "insight_types": ["OutstandingMin"],
+    "query_config": {
+      "dimensions": [[]],
+      "breakdown": {"name": "portUuid", "type": "UNORDERED"},
+      "measures": [{"name": "CEI_score", "aggr": "AVG"}]
+    },
+    "output_ref": "step1_output",
+    "rationale": "找出 CEI_score 最低的 PON 口"
+  }
+]
 ```
 
 ### 步骤数量规则

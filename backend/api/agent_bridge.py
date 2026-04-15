@@ -6,13 +6,21 @@
 
 from __future__ import annotations
 
-from typing import AsyncGenerator, Any
+from typing import Any, AsyncGenerator
 
-from core.agent_factory import create_team
-from core.session_manager import SessionManager
+from core.session_manager import SessionContext, SessionManager
 
 # API 层独立的 SessionManager 实例，与 Gradio 的全局单例隔离
 _api_session_manager = SessionManager()
+
+
+def get_session_context(conv_id: str) -> SessionContext:
+    """获取或创建该会话的 SessionContext（含 team / tracer / db_session_id）。
+
+    暴露给 api 层：让 messages 路由能拿到 tracer 与 observability DB session_id，
+    把 FastAPI 路径接入与 Gradio 路径一致的 trace 通道。
+    """
+    return _api_session_manager.get_or_create(conv_id)
 
 
 async def get_event_stream(

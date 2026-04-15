@@ -15,3 +15,19 @@ role_map:
   user: user
   assistant: assistant
   tool: tool
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 网络 / SSL 相关（可选）— 企业内网 TLS 拦截 / 自签证书 / 代理场景使用
+#
+# 任一字段设置后，model_loader 会构造自定义 httpx.AsyncClient 传给 agno Model；
+# 全部省略（默认）时行为不变，走 agno 默认 client。
+#
+# 诊断参考：如果本地 `requests.post(..., verify=False)` 能通但 agno 报
+# `Connection error.`，几乎都是 SSL 验证失败或代理未透传 —— 用下面的 verify_ssl
+# 或 ca_bundle 修复。
+# ──────────────────────────────────────────────────────────────────────────────
+
+# verify_ssl: false          # 禁用 SSL 证书验证（仅限企业内网 / POC；生产环境请用 ca_bundle）
+# ca_bundle: /etc/ssl/certs/company-ca.pem   # 指向自定义 CA 证书文件（推荐，比禁用 SSL 更安全）
+# proxy: http://user:pass@proxy.company.com:8080   # 显式 HTTP/HTTPS 代理（留空则尊重环境变量 HTTPS_PROXY）
+# trust_env: true            # 是否读取环境变量里的 HTTPS_PROXY / NO_PROXY 等（默认 true）
