@@ -163,6 +163,7 @@ function DashboardLeftPanel({ onViewReport }: Props) {
           {insightState && (
             <InsightPhasePanel
               state={insightState}
+              isStreaming={isStreaming}
               collapsed={progressCollapsed}
               onToggle={() => setProgressCollapsed((v) => !v)}
               reportContent={reportBlock?.type === 'report_ready' ? reportBlock.content : undefined}

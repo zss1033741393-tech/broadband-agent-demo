@@ -8,10 +8,9 @@
   margin-top: 8px;
 }
 
-/* ── 面板模式（Dashboard Sheet 中，固定高度可折叠） ── */
+/* ── 面板模式（浮动、固定高度、可拖拽） ── */
 .panelFixed {
   width: 100%;
-  height: 500px;
   border-radius: 0;
   border: none;
   border-bottom: 1px solid #1f2937;
@@ -21,10 +20,15 @@
   overflow: hidden;
   transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   background: #0d1117;
+  flex-shrink: 0;
 }
 
 .panelCollapsed {
-  height: 42px;
+  height: 42px !important;
+}
+
+.noTransition {
+  transition: none !important;
 }
 
 /* ── 头部 ── */
@@ -90,18 +94,41 @@
   border-color: #9ca3af;
 }
 
-/* 展开时朝下 ∨ */
 .chevronExpanded {
   transform: rotate(45deg) translateY(-2px);
 }
 
-/* 收起时朝上 ∧ */
 .chevronCollapsed {
   transform: rotate(-135deg) translateY(-2px);
   border-color: #4b5563;
 }
 
-/* goal 行（面板模式下单独一行） */
+/* ── 拖拽手柄 ── */
+.dragHandle {
+  flex-shrink: 0;
+  height: 8px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.dragHandle::after {
+  content: '';
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: #1f2937;
+  transition: background 0.15s;
+}
+
+.dragHandle:hover::after {
+  background: #374151;
+}
+
+/* goal 行 */
 .goal {
   flex-shrink: 0;
   padding: 8px 14px;
@@ -118,7 +145,6 @@
   padding: 6px 0;
 }
 
-/* 内联模式下 phaseList 无 flex */
 .panel:not(.panelFixed) .phaseList {
   overflow-y: visible;
 }
@@ -151,33 +177,47 @@
   box-shadow: 0 0 16px rgba(59, 130, 246, 0.2);
 }
 
-.reportIcon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.reportText {
-  font-size: 12px;
-  font-weight: 600;
-  color: #93c5fd;
-  letter-spacing: 0.02em;
-}
-
+.reportIcon { font-size: 14px; flex-shrink: 0; }
+.reportText { font-size: 12px; font-weight: 600; color: #93c5fd; letter-spacing: 0.02em; }
 .reportArrow {
   font-size: 13px;
   color: #60a5fa;
   flex-shrink: 0;
   transition: transform 0.18s;
 }
+.reportBtn:hover .reportArrow { transform: translateX(3px); }
 
-.reportBtn:hover .reportArrow {
-  transform: translateX(3px);
+/* ── Planning 模式：elapsed badge ── */
+.elapsedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.elapsedDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
 }
 
 /* ── Phase ── */
-.phaseBlock {
-  padding: 4px 0;
-}
+.phaseBlock { padding: 4px 0; }
 
 .phaseHeader {
   display: flex;
@@ -187,9 +227,7 @@
   cursor: default;
 }
 
-.phaseHeaderClickable {
-  cursor: pointer;
-}
+.phaseHeaderClickable { cursor: pointer; }
 
 .phaseHeaderClickable:hover {
   background: rgba(255, 255, 255, 0.03);
@@ -203,9 +241,7 @@
   flex-shrink: 0;
 }
 
-.phaseArrowOpen {
-  transform: rotate(90deg);
-}
+.phaseArrowOpen { transform: rotate(90deg); }
 
 .phaseName {
   font-size: 13px;
@@ -218,9 +254,7 @@
   font-weight: 500;
 }
 
-.phaseDiscarded {
-  opacity: 0.45;
-}
+.phaseDiscarded { opacity: 0.45; }
 
 .phaseNameDiscarded {
   text-decoration: line-through;
@@ -245,18 +279,8 @@
 }
 
 /* Phase status icons */
-.iconDone {
-  color: #22c55e;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.iconReflected {
-  color: #f59e0b;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
+.iconDone    { color: #22c55e; font-size: 14px; flex-shrink: 0; }
+.iconReflected { color: #f59e0b; font-size: 14px; flex-shrink: 0; }
 .iconPending {
   color: #374151;
   font-size: 14px;
@@ -287,11 +311,9 @@
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Steps */
+/* Steps (Insight 模式子步骤) */
 .stepList {
   padding: 2px 0 6px 36px;
   display: flex;
@@ -299,11 +321,7 @@
   gap: 4px;
 }
 
-.stepBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.stepBlock { display: flex; flex-direction: column; gap: 4px; }
 
 .stepRow {
   display: flex;
@@ -331,30 +349,12 @@
   flex-shrink: 0;
 }
 
-.stepIconDone {
-  color: #22c55e;
-  font-size: 11px;
-  flex-shrink: 0;
-}
+.stepIconDone { color: #22c55e; font-size: 11px; flex-shrink: 0; }
+.stepIconRunning { color: #3b82f6; font-size: 11px; flex-shrink: 0; }
 
-.stepIconRunning {
-  color: #3b82f6;
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.stepLabel {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.step_done .stepLabel {
-  color: #9ca3af;
-}
-
-.step_running .stepLabel {
-  color: #93c5fd;
-}
+.stepLabel { font-size: 12px; color: #6b7280; }
+.step_done .stepLabel  { color: #9ca3af; }
+.step_running .stepLabel { color: #93c5fd; }
 
 .stepSig {
   font-size: 10px;

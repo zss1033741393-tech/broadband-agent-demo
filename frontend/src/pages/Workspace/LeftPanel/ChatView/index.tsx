@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import MessageList from './MessageList';
 import InputBubble from './InputBubble';
+import InsightPhasePanel from './InsightPhasePanel';
 import styles from './ChatView.module.css';
 
 interface Props {
@@ -24,6 +25,7 @@ function ChatView({ prefillMessage }: Props) {
   const conversations = useConversationStore((s) => s.list);
   const updateTitle = useConversationStore((s) => s.updateTitle);
   const [editDraft, setEditDraft] = useState(prefillMessage ?? '');
+  const [progressCollapsed, setProgressCollapsed] = useState(false);
 
   const messages = activeId ? (messagesByConvId[activeId] ?? []) : [];
   const messagesLoading = activeId ? messagesLoadingConvIds.has(activeId) : false;
@@ -39,6 +41,16 @@ function ChatView({ prefillMessage }: Props) {
       loadMessages(activeId);
     }
   }, [activeId, loadMessages]);
+
+  // 从最后一条 assistant 消息中提取进度数据
+  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  const insightState = lastAssistant?.insightState ?? null;
+  const steps = lastAssistant?.steps ?? [];
+  const allBlocks = messages.flatMap((m) => m.blocks ?? []);
+  const reportBlock = [...allBlocks].reverse().find((b) => b.type === 'report_ready');
+
+  // 有任意 step 或 insightState → 显示进度跟踪面板
+  const hasProgress = steps.length > 0 || insightState !== null;
 
   return (
     <div className={styles.container}>
@@ -56,6 +68,20 @@ function ChatView({ prefillMessage }: Props) {
         </h2>
       </header>
 
+      {/* 进度跟踪面板：有 step 或 insightState 时悬浮在顶部 */}
+      {hasProgress && (
+        <InsightPhasePanel
+          state={insightState ?? undefined}
+          steps={steps.length > 0 ? steps : undefined}
+          isStreaming={isStreaming}
+          collapsed={progressCollapsed}
+          onToggle={() => setProgressCollapsed((v) => !v)}
+          reportContent={reportBlock?.type === 'report_ready' ? reportBlock.content : undefined}
+          reportCharts={reportBlock?.type === 'report_ready' ? reportBlock.charts : undefined}
+          onViewReport={(content, charts) => setActiveReport({ content, charts })}
+        />
+      )}
+
       <div className={styles.body}>
         <MessageList
           messages={messages}
@@ -63,7 +89,6 @@ function ChatView({ prefillMessage }: Props) {
           isStreaming={isStreaming}
           onEditMessage={(content) => {
             if (isStreaming && activeId) {
-              // 中止当前会话的流，移除未完成的 assistant 消息
               abortStream(activeId);
               const msgs = useWorkspaceStore.getState().messagesByConvId[activeId] ?? [];
               const last = msgs[msgs.length - 1];
@@ -78,7 +103,8 @@ function ChatView({ prefillMessage }: Props) {
             }
             setEditDraft(content);
           }}
-          onViewReport={(content, charts) => setActiveReport({ content, charts })}
+          hideInsightPanel={hasProgress}
+          onViewReport={hasProgress ? undefined : (content, charts) => setActiveReport({ content, charts })}
         />
       </div>
 
