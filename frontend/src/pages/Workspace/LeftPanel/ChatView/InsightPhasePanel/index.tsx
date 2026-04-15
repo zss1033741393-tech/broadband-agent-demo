@@ -232,77 +232,86 @@ function InsightPhasePanel({
     ? { height: panelHeight }
     : undefined;
 
-  const panelContent = (
-    <div className={panelClass} style={panelStyle} ref={panelRef}>
-      {/* 头部 */}
-      <div
-        className={`${styles.panelHeader} ${isPanelMode ? styles.panelHeaderClickable : ''}`}
-        onClick={isPanelMode ? onToggle : undefined}
-      >
-        <span className={styles.panelTitle}>进度跟踪</span>
-        {state?.goal && !isPanelMode && (
-          <span className={styles.goalInline}>{state.goal}</span>
-        )}
-        <span className={styles.panelProgress}>{doneCount} / {totalCount}</span>
-        {isPanelMode && (
-          <span className={`${styles.collapseChevron} ${collapsed ? styles.chevronCollapsed : styles.chevronExpanded}`} />
-        )}
+  // ── 内联模式（MessageList 中，无折叠/拖拽） ─────────────────
+  if (!isPanelMode) {
+    return (
+      <div className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <span className={styles.panelTitle}>进度跟踪</span>
+          {state?.goal && <span className={styles.goalInline}>{state.goal}</span>}
+          <span className={styles.panelProgress}>{doneCount} / {totalCount}</span>
+        </div>
+        <div className={styles.phaseList}>
+          {state && state.phases.map((p) => <InsightPhaseRow key={p.phaseId} phase={p} />)}
+          {steps && steps.map((s) => (
+            <PlanningPhaseRow key={s.stepId} step={s} isRunning={s.stepId === runningStepId} />
+          ))}
+        </div>
       </div>
+    );
+  }
 
-      {/* 拖拽手柄（面板模式展开时显示，在 header 下方） */}
-      {isPanelMode && !collapsed && (
-        <div
-          className={styles.dragHandle}
-          onMouseDown={onDragMouseDown}
-        />
-      )}
+  // ── 面板模式：折叠时横排标题，展开时左侧竖排标题 ─────────────
+  return (
+    <div className={wrapClass}>
+      <div className={panelClass} style={panelStyle} ref={panelRef}>
 
-      {/* 内容区 */}
-      {(!isPanelMode || !collapsed) && (
-        <>
-          {state?.goal && isPanelMode && (
-            <div className={styles.goal}>{state.goal}</div>
-          )}
-
-          <div className={styles.phaseList}>
-            {/* Insight 模式 */}
-            {state && state.phases.map((p) => (
-              <InsightPhaseRow key={p.phaseId} phase={p} />
-            ))}
-            {/* Planning 模式 */}
-            {steps && steps.map((s) => (
-              <PlanningPhaseRow
-                key={s.stepId}
-                step={s}
-                isRunning={s.stepId === runningStepId}
-              />
-            ))}
+        {collapsed ? (
+          /* ── 折叠：居中横排标题 ── */
+          <div className={styles.panelHeaderClickable} onClick={onToggle}>
+            <span className={styles.panelTitle}>进度跟踪</span>
+            <span className={styles.panelProgress}>{doneCount} / {totalCount}</span>
+            <span className={`${styles.collapseChevron} ${styles.chevronCollapsed}`} />
           </div>
-
-          {/* 报告按钮 */}
-          {onViewReport && reportContent !== undefined && reportCharts !== undefined && (
-            <div className={styles.reportFooter}>
-              <button
-                className={styles.reportBtn}
-                type="button"
-                onClick={() => onViewReport(reportContent, reportCharts)}
-              >
-                <span className={styles.reportIcon}>📄</span>
-                <span className={styles.reportText}>点击查看报告</span>
-                <span className={styles.reportArrow}>→</span>
-              </button>
+        ) : (
+          /* ── 展开：左侧竖排标题 + 右侧内容 ── */
+          <>
+            {/* 左侧竖排标题条 */}
+            <div className={styles.verticalSidebar} onClick={onToggle}>
+              <span className={styles.verticalTitleText}>进度跟踪</span>
             </div>
-          )}
-        </>
-      )}
+
+            {/* 右侧内容列 */}
+            <div className={styles.panelContent}>
+              {/* 顶部控制行：进度 + 收起按钮 */}
+              <div className={styles.panelControls} onClick={onToggle}>
+                {state?.goal && <span className={styles.goalInline}>{state.goal}</span>}
+                <span className={styles.panelProgress}>{doneCount} / {totalCount}</span>
+                <span className={`${styles.collapseChevron} ${styles.chevronExpanded}`} />
+              </div>
+
+              {/* 拖拽手柄 */}
+              <div className={styles.dragHandle} onMouseDown={onDragMouseDown} />
+
+              {/* 进度列表 */}
+              <div className={styles.phaseList}>
+                {state && state.phases.map((p) => <InsightPhaseRow key={p.phaseId} phase={p} />)}
+                {steps && steps.map((s) => (
+                  <PlanningPhaseRow key={s.stepId} step={s} isRunning={s.stepId === runningStepId} />
+                ))}
+              </div>
+
+              {/* 报告按钮 */}
+              {onViewReport && reportContent !== undefined && reportCharts !== undefined && (
+                <div className={styles.reportFooter}>
+                  <button
+                    className={styles.reportBtn}
+                    type="button"
+                    onClick={() => onViewReport(reportContent, reportCharts)}
+                  >
+                    <span className={styles.reportIcon}>📄</span>
+                    <span className={styles.reportText}>点击查看报告</span>
+                    <span className={styles.reportArrow}>→</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+      </div>
     </div>
   );
-
-  // 面板模式：用包装层承载 drop-shadow（filter 跟随 clip-path 形状）
-  if (isPanelMode) {
-    return <div className={wrapClass}>{panelContent}</div>;
-  }
-  return panelContent;
 }
 
 export default InsightPhasePanel;

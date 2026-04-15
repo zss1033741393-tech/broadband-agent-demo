@@ -39,7 +39,7 @@
 .panelFixed {
   width: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* 展开时横排：左侧竖排标题 + 右侧内容 */
   overflow: hidden;
   max-height: 350px;
   /* height 由内容自适应；拖拽时通过 inline style 覆盖 */
@@ -450,4 +450,78 @@
   color: #4b5563;
   margin-left: auto;
   font-family: monospace;
+}
+
+/* ── 展开模式：左侧竖排标题 ── */
+.verticalSidebar {
+  flex-shrink: 0;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  border-right: 1px solid rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.04);
+  transition: background 0.15s;
+  padding: 12px 0;
+}
+
+.verticalSidebar:hover {
+  background: rgba(59, 130, 246, 0.09);
+}
+
+.verticalTitleText {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  background: linear-gradient(180deg, #bfdbfe 0%, #93c5fd 60%, #e2e8f0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── 展开模式：右侧内容列 ── */
+.panelContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 控制行（进度 + chevron），点击折叠 */
+.panelControls {
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 12px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  transition: background 0.15s;
+  position: relative;
+}
+
+.panelControls::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 14px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(59, 130, 246, 0.4) 30%,
+    rgba(99, 102, 241, 0.5) 50%,
+    rgba(59, 130, 246, 0.4) 70%,
+    transparent 100%
+  );
+}
+
+.panelControls:hover {
+  background: rgba(59, 130, 246, 0.05);
 }
