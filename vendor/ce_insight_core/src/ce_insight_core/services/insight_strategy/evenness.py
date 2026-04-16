@@ -6,6 +6,8 @@ import numpy as np
 
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
 
+_DEFAULT_TOP_K = 20  # filter_data / chart 最多保留行数（按指标值降序）
+
 
 class EvennessStrategy(InsightStrategy):
     def execute(self, **kwargs) -> None:
@@ -32,7 +34,7 @@ class EvennessStrategy(InsightStrategy):
         result_df = grouped.reset_index()
         result_df.columns = [group_column, col]
         result_df = result_df.sort_values(col, ascending=False)
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         if gini < 0.2:
             level = "分布较均匀"
@@ -60,7 +62,8 @@ class EvennessStrategy(InsightStrategy):
             truncate_labels,
         )
 
-        display_labels = truncate_labels(result_df[group_column].astype(str).tolist())
+        display_df = result_df.head(_DEFAULT_TOP_K)
+        display_labels = truncate_labels(display_df[group_column].astype(str).tolist())
         mean_val = round(float(np.mean(values)), 2)
         self._chart_configs = {
             "chart_type": "bar",
@@ -79,7 +82,7 @@ class EvennessStrategy(InsightStrategy):
                 {
                     "type": "bar",
                     "name": col,
-                    "data": result_df[col].round(2).tolist(),
+                    "data": display_df[col].round(2).tolist(),
                     "itemStyle": {"color": BLUE},
                     "barMaxWidth": 40,
                     "markLine": {

@@ -137,7 +137,7 @@ async def _stream_segment(
             "segType": seg_type,
             "data": chunk,
         })
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.05)
 
     seg_end_data: dict = {
         "segType": seg_type,

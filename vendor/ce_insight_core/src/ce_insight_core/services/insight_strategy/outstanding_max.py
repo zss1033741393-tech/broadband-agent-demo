@@ -12,6 +12,8 @@ import pandas as pd
 
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
 
+_DEFAULT_TOP_K = 20  # filter_data / per_group_best 最多保留行数（best-first）
+
 
 class OutstandingMaxStrategy(InsightStrategy):
     def execute(self, **kwargs) -> None:
@@ -56,7 +58,7 @@ class OutstandingMaxStrategy(InsightStrategy):
 
         result_df = sorted_vals.reset_index()
         result_df.columns = [group_column, col]
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         self._description = {
             "max_group": str(max_group),
@@ -247,8 +249,10 @@ class OutstandingMaxStrategy(InsightStrategy):
                     row_dict[col] = round(float(v), 4) if pd.notna(v) else None
             rows.append(row_dict)
 
+        # 按 best_value 降序排列（最突出的排前面），截取 top-K
+        rows.sort(key=lambda r: r.get("best_value", float("-inf")), reverse=True)
         result_df = pd.DataFrame(rows)
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         counter = Counter(best_measures)
         most_common_best, most_common_count = counter.most_common(1)[0]
@@ -257,10 +261,15 @@ class OutstandingMaxStrategy(InsightStrategy):
 
         self._significance_score = float(np.clip(concentration, 0.3, 1.0))
 
+        # per_group_best 截取 top-K（best_value 最高的前 K 个），避免万级 key 膨胀上下文
+        top_k_groups = [r[group_column] for r in rows[:_DEFAULT_TOP_K]]
+        per_group_best_topk = {g: per_group_best[g] for g in top_k_groups if g in per_group_best}
+
         summary_lines = [
-            f"对 {n_groups} 个 {group_column} 做多指标对比，每个分组的最突出维度如下："
+            f"对 {n_groups} 个 {group_column} 做多指标对比，"
+            f"以下为得分最突出的 {min(_DEFAULT_TOP_K, n_groups)} 个分组："
         ]
-        for g, info in list(per_group_best.items())[:8]:
+        for g, info in list(per_group_best_topk.items())[:8]:  # 摘要最多 8 行
             summary_lines.append(f"- {g}: {info['measure']} = {info['value']}")
         if most_common_count >= 2:
             summary_lines.append(
@@ -272,14 +281,15 @@ class OutstandingMaxStrategy(InsightStrategy):
 
         self._description = {
             "mode": "matrix",
-            "per_group_best": per_group_best,
+            "per_group_best": per_group_best_topk,  # top-K，不含全量
             "most_common_best": most_common_best,
             "most_common_count": most_common_count,
             "n_groups": n_groups,
             "summary": "\n".join(summary_lines),
         }
 
-        # 图表：每个 group 各自最高 cell 标红
+        # 图表只展示 top-K 最突出分组
+        group_labels = top_k_groups
         groups = truncate_labels(group_labels)
         colors = PALETTE
 

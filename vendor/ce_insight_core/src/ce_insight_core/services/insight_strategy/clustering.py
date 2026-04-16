@@ -3,8 +3,12 @@
 """
 
 import numpy as np
+import pandas as pd
 
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
+
+_DEFAULT_TOP_K = 20   # filter_data 每簇最多保留代表性样本数
+_CHART_PER_CLUSTER = 50  # scatter 图每簇最多渲染点数
 
 
 class ClusteringStrategy(InsightStrategy):
@@ -44,7 +48,15 @@ class ClusteringStrategy(InsightStrategy):
         # 各簇统计
         cluster_stats = df.groupby("cluster")[value_columns].mean().round(2)
 
-        self._filter_data = df
+        # filter_data：每簇取前 _DEFAULT_TOP_K 行代表性样本，拼接后作为结果
+        cluster_samples = [
+            df[df["cluster"] == c].head(_DEFAULT_TOP_K) for c in range(best_k)
+        ]
+        self._filter_data = (
+            df.iloc[:0]  # 空 DataFrame 兜底
+            if not cluster_samples
+            else pd.concat(cluster_samples, ignore_index=True)
+        )
         self._description = {
             "n_clusters": best_k,
             "silhouette_score": round(float(best_score), 4),
@@ -65,14 +77,16 @@ class ClusteringStrategy(InsightStrategy):
         for c in range(best_k):
             mask = df["cluster"] == c
             count = int(mask.sum())
+            # scatter 图每簇只渲染前 _CHART_PER_CLUSTER 个点，避免万级点位膨胀 chart_configs
+            cluster_df = df.loc[mask].head(_CHART_PER_CLUSTER)
             series.append(
                 {
                     "name": f"簇{c} ({count}个)",
                     "type": "scatter",
                     "data": list(
                         zip(
-                            df.loc[mask, x_col].round(2).tolist(),
-                            df.loc[mask, y_col].round(2).tolist(),
+                            cluster_df[x_col].round(2).tolist(),
+                            cluster_df[y_col].round(2).tolist(),
                         )
                     ),
                     "itemStyle": {"color": PALETTE[c % len(PALETTE)], "opacity": 0.7},
