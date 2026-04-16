@@ -19,6 +19,8 @@ import type {
   ThinkingEvent,
 } from '@/types/sse';
 
+// 加载类工具（读取 SKILL.md / references），实时流和历史回放均不渲染到 UI
+const SKILL_LOAD_TOOLS = new Set(['get_skill_instructions', 'get_skill_reference']);
 export type LeftView = 'list' | 'chat';
 
 interface WorkspaceState {
@@ -73,8 +75,16 @@ function rebuildBlocks(m: Message): MessageBlock[] {
   }
   for (const step of m.steps ?? []) {
     step.completed = true;
+    // 先过滤 subSteps（影响步骤计数）
+    step.subSteps = step.subSteps.filter((sub) => !SKILL_LOAD_TOOLS.has(sub.name));
     if (!step.items?.length) {
+      // 旧消息无 items，从 subSteps 重建（已过滤）
       step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
+    } else {
+      // 新消息 items 来自 API，直接过滤加载类条目
+      step.items = step.items.filter(
+        (item) => item.type !== 'sub_step' || !SKILL_LOAD_TOOLS.has(item.data.name),
+      );
     }
     blocks.push({ type: 'step', stepId: step.stepId });
   }
@@ -392,6 +402,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             }
             case 'sub_step': {
               const d = e.data as SubStepEvent;
+              if (SKILL_LOAD_TOOLS.has(d.name)) break;   // 过滤掉某些子步骤
+
               const sub: SubStep = {
                 subStepId: d.subStepId,
                 name: d.name,
