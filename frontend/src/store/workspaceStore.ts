@@ -81,14 +81,18 @@ function rebuildBlocks(m: Message): MessageBlock[] {
     blocks.push({ type: 'text', content: m.content });
   }
   // 从 renderBlocks 重建 report_ready block（insight 报告回放）
-  for (const rb of m.renderBlocks ?? []) {
-    if (rb.renderType === 'insight' && rb.renderData.markdownReport?.trim()) {
-      blocks.push({
-        type: 'report_ready',
-        content: rb.renderData.markdownReport,
-        charts: rb.renderData.charts ?? [],
-      });
-    }
+  // insight_query 每次查询产出单条 chart renderBlock（markdownReport=''），
+  // insight_report 产出一条 markdownReport renderBlock（charts=[]）。
+  // 历史回放需把所有图表合并，再配上 markdownReport，才能还原带插图的报告。
+  const insightRBs = (m.renderBlocks ?? []).filter((rb) => rb.renderType === 'insight');
+  const allCharts: ChartItem[] = insightRBs.flatMap((rb) => (rb.renderData as { charts?: ChartItem[] }).charts ?? []);
+  const reportRB = insightRBs.find((rb) => (rb.renderData as { markdownReport?: string }).markdownReport?.trim());
+  if (reportRB) {
+    blocks.push({
+      type: 'report_ready',
+      content: (reportRB.renderData as { markdownReport: string }).markdownReport,
+      charts: allCharts,
+    });
   }
   return blocks;
 }
