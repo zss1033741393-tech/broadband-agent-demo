@@ -11,6 +11,9 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
@@ -24,6 +27,7 @@ from api import repository as repo
 from api.routes.conversations import router as conv_router
 from api.routes.messages import router as msg_router
 from api.routes.images import router as img_router
+from api.routes.simulation import router as sim_router
 
 setup_logger()
 
@@ -73,6 +77,7 @@ async def access_log_middleware(request: Request, call_next):
 app.include_router(conv_router, prefix="/api")
 app.include_router(msg_router, prefix="/api")
 app.include_router(img_router, prefix="/api")
+app.include_router(sim_router, prefix="/api")
 
 
 @app.get("/health")

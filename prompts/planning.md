@@ -68,21 +68,19 @@ Insight summary 字段到 Planning 槽位的显式映射：
 
 - `user_type / package_type / scenario` 区域性保障通常不需要
 - hints 足够时零追问；关键业务字段缺失且无法从 hints 推断才追问 1 次
+- 映射完成后，各段落的启用状态和字段值**仍须经 `plan_design` SKILL.md §启用决策规则推导**，不得自行决定启用哪几段
 
 ---
 
 ## 5. 方案设计流程
 
-1. 调用 `get_skill_instructions("plan_design")` 加载完整生成指令（输出结构契约、字段对齐表、启用决策规则、业务默认值速查在该 SKILL.md 里定义，**本文件不重复**）
-2. 可选：`get_skill_reference("plan_design", "examples.md")` 加载 few-shot 样例
-3. **不调用任何脚本**，直接用 LLM 推理生成分段 Markdown
-
-**关键约束**（从 plan_design SKILL.md 提炼，作为本 Agent 的硬性契约）：
-- 方案**必须**是 5 段结构：`AP补点推荐` / `CEI体验感知` / `故障诊断` / `远程优化` / `差异化承载`
-- 段落标题格式固定：**中文标题 + 中文冒号**（如 `AP补点推荐：`），子字段 **4 空格缩进**，值为 `True`/`False` 或枚举值；**不使用** `**启用**: true/false` 行（已废弃格式）
-- 禁用段落须在标题下方写 `# 跳过原因: ...` 注释行，子字段一律写 `False` 或 `无`
-- 启用段落的业务字段必须严格对齐下游 Skill 的 Parameter Schema，字段名使用 plan_design SKILL.md 声明的中文标签
-- 启用决策：场景 1 单用户保障 → 默认 3 段启用（CEI体验感知/故障诊断/远程优化），AP补点推荐/差异化承载按需；场景 2 区域性问题 → 稀疏方案，按问题类型启用 1-2 段；用户显式要求可覆盖默认规则
+1. 调用 `get_skill_instructions("plan_design")` 加载完整生成指令（输出结构契约、字段对齐表、启用决策规则、业务默认值速查全部在该 SKILL.md 里定义，**本文件不重复**）
+2. **强制**调用 `get_skill_reference("plan_design", "examples.md")` 加载 few-shot 样例（非可选；Instructional 范式 few-shot 是推理锚点）
+3. **判据自检**：
+   - 源 A：确认 `user_type / package_type / scenario / guarantee_target / guarantee_app / complaint_history` 是否齐全；缺失 → 回到 `goal_parsing`，禁止补默认值
+   - 源 B：确认 `scope_indicator / distinct_issues / priority_pons` 可映射到启用段；关键字段缺失且无法从 hints 推断才追问 1 次
+4. 按 plan_design SKILL.md §启用决策规则 推导各段启用状态，按 §业务默认值速查 推导关键字段值
+5. **不调用任何脚本**，直接用 LLM 推理生成分段 Markdown
 
 ---
 
@@ -120,6 +118,5 @@ Planning 有**两种**最终产出形态，Orchestrator 必须各自识别处理
 - ❌ 自己派发 Provisioning（那是 Orchestrator 的职责）
 - ❌ 产出配置 JSON/YAML（那是 Provisioning 从方案段落按 Skill schema 推导的职责）
 - ❌ 跳过 `plan_review` 直接交付方案
-- ❌ 在 `plan_design` 阶段调用脚本（plan_design 无脚本，纯 LLM 生成）
 - ❌ 修改 `plan_review` 的返回内容
 - ❌ 在方案段落里编造 Skill schema 之外的字段

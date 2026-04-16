@@ -6,7 +6,7 @@ description: "方案设计：根据用户画像或洞察摘要，生成 5 段式
 # 方案设计
 
 ## Metadata
-- **paradigm**: Instructional (纯指令 + few-shot 样例，无脚本)
+- **paradigm**: Instructional + Knowledge Base（纯指令 + few-shot 样例 + 强制查阅的业务映射表，无脚本）
 - **when_to_use**: PlanningAgent 收集齐画像（综合目标）或收到 Insight 摘要后，需要产出可执行方案
 - **inputs**: 画像 JSON（场景 1）或 画像 + insight 摘要（场景 2）
 - **outputs**: 5 段式方案，每段以中文冒号标题 + 4 空格缩进子字段输出，子字段 True/False 驱动下游 Skill 参数
@@ -28,7 +28,7 @@ description: "方案设计：根据用户画像或洞察摘要，生成 5 段式
 
 1.**用户类型**：
     -直播用户：要求上行带宽的冗余、上行链路的低丢包 / 低抖动。组网上要求改桥接模式，由主路由器拨号关闭光猫自带 WiFi；优先有线直连，无线连接优先 5G WiFi；套餐上要求高上行和高QoS优先级，保障上行带宽足够；
-    -游戏用户：对上下行的时延、抖动、丢包敏感，对带宽需求低；组网上要求改桥接模式，路由器拨号，关闭光猫自带     WiFi 和多余防火墙功能，路由器最好支持游戏QoS模式；优先有线直连路由器，无线必须用 5G 频段，避免wifi干扰；套餐上百兆带宽和千兆带宽区别不大。
+    -游戏用户：对上下行的时延、抖动、丢包敏感，对带宽需求低；组网上要求改桥接模式，路由器拨号，关闭光猫自带 WiFi 和多余防火墙功能，路由器最好支持游戏QoS模式；优先有线直连路由器，无线必须用 5G 频段，避免wifi干扰；套餐上百兆带宽和千兆带宽区别不大。
     -视频用户：要求下行带宽足够，能稳定满足视频码率的吞吐量需求；组网上光猫路由 / 桥接模式均可；无线连接优先 5G WiFi； 套餐上百兆带宽和千兆带宽区别不大。
     -会议用户：要求上下行带宽的对称冗余，对时延、抖动、丢包实时性要求高；组网上优先桥接模式，路由器拨号；优先有线直连路由器，无线必须用 5G 频段； 套餐上优先办理商宽 / 对称带宽套餐，上行≥50Mbps    
 
@@ -95,7 +95,7 @@ CEI体验感知：
     差异化承载：True | False
     应用类型：<app_type>
     保障应用：<app_name>
-    业务类型：<policy_profile>
+    业务类型：experience-assurance | app-flow | assurance-app-slice | limit-speed-1m | vip-assurance | 无
 ```
 
 **启用 / 禁用规则**：
@@ -109,6 +109,8 @@ CEI体验感知：
 | `差异化承载` | `差异化承载：False` |
 
 禁用的段落须在段落标题下方用 `# 跳过原因: ...` 注释行说明原因，子字段一律写 `False` 或 `无`。
+
+> ⚠️ **禁用段子字段强制规范**：凡主开关为 `False`（或段落整体跳过）的段落，其所有子字段均须写 `False` 或 `无`，**禁止在禁用段填写真实业务值**（如 `差异化承载：False` 时，下方 `应用类型 / 保障应用 / 业务类型` 必须全写 `无`）。
 
 ## 字段 ↔ Skill Schema 对齐表
 
@@ -131,7 +133,8 @@ CEI体验感知：
 
 1. **单用户故障保障（场景 1）** — 画像含完整 7 槽、`guarantee_target` 为家庭级或应用级：
    - 默认**3 段启用**（CEI体验感知 / 故障诊断 / 远程优化）
-   - 默认**其它 2 段不启用**（AP补点推荐  / 差异化承载 ）
+   - 默认**其它 2 段不启用**（AP补点推荐 / 差异化承载）
+   - **WIFI 覆盖弱特判**（优先级高于默认规则）：`issue_type=wifi_coverage` 或投诉关键词含"信号弱/盲区/覆盖差" → 覆盖默认 3 段规则，**仅启用 AP补点推荐**（三子项全 True），其余 4 段全部禁用并注明跳过原因
    - 例外：用户已明确排除某方面时，对应段落全部子字段置 `False`
 2. **区域性问题（场景 2，Insight 回流）** — 画像含 `scope_indicator=regional/multi_pon` 或 `hints.priority_pons`：
    - 根据问题类型决定启用段落，**通常只启用 1-2 段**
@@ -206,27 +209,33 @@ CEI体验感知：
 | 家庭直播 | True | True | True |
 | 常规维护 / 意图不明 | True | True | True |
 
-### 差异化承载 → APP Flow / 应用策略
+### 差异化承载 → 业务类型选择
 
-| 场景 | APP Flow | 应用策略参考值 |
+| 场景 | 差异化承载（主开关） | 业务类型 |
 |---|---|---|
 | 区域性 PON 拥塞整形（流量成型） | True | `limit-speed-1m` |
-| 单用户应用切片保障（仅针对wifi连接生效） | False | `assurance-app-slice` |
-| 高保障 VIP 套餐 | False | `vip-assurance` |
+| 有线连接·PON 管道保障（如楼宇直播） | True | `app-flow` |
+| 单用户 WIFI 应用切片保障（仅对 WiFi 连接生效） | True | `assurance-app-slice` |
+| 高保障 VIP 套餐 | True | `vip-assurance` |
+| 不需要差异化承载 | False | 无 |
 
 **CEI阈值参考**：常规场景默认 `70分`；直播/专线场景建议 `80分`；投诉处置建议 `85分`。
 
 ## How to Use
 
 1. PlanningAgent 调用 `get_skill_instructions("plan_design")` 获取本指令
-2. 可选地加载 `get_skill_reference("plan_design", "examples.md")` 查看 few-shot 样例
-3. **不调用任何脚本**，直接用 LLM 根据画像推理生成 5 段方案
-4. 把生成的方案交给 `plan_review` 校验
-5. 校验通过后交回 PlanningAgent 主流程，由 Orchestrator 拆分派发
+2. **强制**加载 `get_skill_reference("plan_design", "examples.md")` 查看 few-shot 样例（非可选；Instructional 范式 few-shot 是推理锚点）
+3. **判据自检**：确认画像中以下字段是否齐全：`user_type / package_type / scenario / guarantee_target / guarantee_app / complaint_history`；字段缺失 → 回到 `goal_parsing`，**禁止补默认值**
+4. 对照 §启用决策规则 确定各段落启用状态（注意 WIFI 覆盖弱特判优先级）
+5. 对照 §业务默认值速查 逐字段推导 CEI模型 / CEI阈值 / 诊断场景 / 远程优化触发时间 / 业务类型等关键值
+6. **格式自检**：每段字段名与 §输出结构契约 对齐；禁用段子字段是否全部为 `False` 或 `无`（不得留有真实业务值）
+7. **不调用任何脚本**，直接用 LLM 推理生成 5 段方案
+8. 把生成的方案交给 `plan_review` 校验
+9. 校验完成后交回 PlanningAgent 主流程，由 Orchestrator 拆分派发
 
 ## References
 
-- `references/examples.md` — 3 个典型场景的 few-shot 样例（场景 1 完整方案 / 场景 2 稀疏方案 / 场景 2 变体）
+- `references/examples.md` — 4 个典型场景的 few-shot 样例（场景 1 直播完整方案 × 2 / 场景 2 区域稀疏方案 / 场景 2 变体 WIFI 覆盖弱）；每个样例含显式"决策链路"标注推导路径
 
 ## 禁止事项
 
@@ -235,3 +244,5 @@ CEI体验感知：
 - ❌ 不要写 `**启用**: true/false` 行（旧格式，已废弃）
 - ❌ 不要把业务字段写成自由散文，子字段必须严格按 `字段名：值` 格式
 - ❌ 不要猜测 schema 之外的参数
+- ❌ 禁用段（主开关为 `False` 或整段跳过）的子字段禁止填真实业务值，一律写 `False` 或 `无`
+- ❌ 不要把 `How to Use` 中的步骤 3 判据自检跳过，缺字段必须回到 `goal_parsing`
