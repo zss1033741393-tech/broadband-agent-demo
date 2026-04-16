@@ -108,7 +108,8 @@ function computeRows(renders: RenderBlock[], insightState?: InsightState): Layou
 
 function renderBlock(block: RenderBlock) {
   if (block.renderType === 'image') return <ImageDisplay data={block.renderData} />;
-  return <InsightDisplay data={block.renderData} />;
+  if (block.renderType === 'insight') return <InsightDisplay data={block.renderData} />;
+  return null; // experience_assurance 等类型在左侧对话流中渲染，右侧跳过
 }
 
 interface Props {
