@@ -63,9 +63,8 @@ function buildMarkArea(xData: number[], segments: SimSegment[]) {
 function buildOption(props: Props): EChartsOption {
   const { xData, series, yAxes, markLines, segments, streaming } = props;
   const total = xData.length;
-  const startPct = streaming && total > WINDOW_SIZE
-    ? Math.round(((total - WINDOW_SIZE) / total) * 100)
-    : 0;
+  const windowStart = streaming && total > WINDOW_SIZE ? total - WINDOW_SIZE : 0;
+  const windowEnd = total > 0 ? total - 1 : 0;
 
   const markArea = buildMarkArea(xData, segments);
 
@@ -156,8 +155,8 @@ function buildOption(props: Props): EChartsOption {
     dataZoom: [
       {
         type: 'inside',
-        start: startPct,
-        end: 100,
+        startValue: windowStart,
+        endValue: windowEnd,
         zoomOnMouseWheel: !streaming,
         moveOnMouseMove: !streaming,
       },
@@ -165,8 +164,8 @@ function buildOption(props: Props): EChartsOption {
         ? [
             {
               type: 'slider' as const,
-              start: startPct,
-              end: 100,
+              startValue: 0,
+              endValue: windowEnd,
               height: 18,
               bottom: 4,
               borderColor: '#30363d',
