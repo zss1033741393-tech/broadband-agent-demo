@@ -43,15 +43,9 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
-  // 监听用户手动滚动
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      userScrolledUpRef.current = !isNearBottom();
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+  // onScroll prop 直接绑定，避免 useEffect 时机问题（初始空状态下 scrollRef 为 null）
+  const handleScroll = useCallback(() => {
+    userScrolledUpRef.current = !isNearBottom();
   }, [isNearBottom]);
 
   useEffect(() => {
@@ -97,7 +91,7 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
   }
 
   return (
-    <div className={styles.scroll} ref={scrollRef}>
+    <div className={styles.scroll} ref={scrollRef} onScroll={handleScroll}>
       <div className={styles.list}>
         {messages.map((msg) => {
           if (msg.role === 'user') {
