@@ -75,6 +75,13 @@ def _safe_parse_json(raw: str) -> dict:
             return json.loads(stripped)
         except json.JSONDecodeError:
             pass
+    # 第 1.5 层：修复 LLM 将 args 列表结束符 ] 混入 JSON 对象末尾
+    _candidate = raw.strip()
+    if _candidate.startswith("{") and _candidate.endswith("]"):
+        try:
+            return json.loads(_candidate[:-1] + "}")
+        except json.JSONDecodeError:
+            pass
     repaired = re.sub(r"(?<=[{,])\s*([a-zA-Z_]\w*)\s*:", r' "\1":', raw)
     try:
         return json.loads(repaired)
