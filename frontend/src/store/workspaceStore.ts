@@ -64,7 +64,7 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 从历史 message 重建 blocks */
+/** 从历史 message 重建 blocks，包括从 renderBlocks 重建 report_ready */
 function rebuildBlocks(m: Message): MessageBlock[] {
   const blocks: MessageBlock[] = [];
   if (m.thinkingContent?.trim()) {
@@ -72,17 +72,40 @@ function rebuildBlocks(m: Message): MessageBlock[] {
   }
   for (const step of m.steps ?? []) {
     step.completed = true;
-    // step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
     if (!step.items?.length) {
       step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
     }
-
     blocks.push({ type: 'step', stepId: step.stepId });
   }
   if (m.content?.trim()) {
     blocks.push({ type: 'text', content: m.content });
   }
+  // 从 renderBlocks 重建 report_ready block（insight 报告回放）
+  for (const rb of m.renderBlocks ?? []) {
+    if (rb.renderType === 'insight' && rb.renderData.markdownReport?.trim()) {
+      blocks.push({
+        type: 'report_ready',
+        content: rb.renderData.markdownReport,
+        charts: rb.renderData.charts ?? [],
+      });
+    }
+  }
   return blocks;
+}
+
+/** 从历史 message 的 steps[].textContent 重解析 insightState */
+function rebuildInsightState(m: Message): import('@/types/insight').InsightState | undefined {
+  const parser = new InsightEventParser();
+  let state: import('@/types/insight').InsightState | undefined;
+  for (const step of m.steps ?? []) {
+    const text = (step as Step & { textContent?: string }).textContent ?? '';
+    if (!text) continue;
+    const { events } = parser.feed(text);
+    for (const evt of events) {
+      state = applyInsightEvent(state, evt);
+    }
+  }
+  return state;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -137,7 +160,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const resp = await getMessages(id);
       const list = (resp.list ?? []).map((m) => {
         if (m.role !== 'assistant') return m;
-        return { ...m, blocks: rebuildBlocks(m) };
+        return { ...m, blocks: rebuildBlocks(m), insightState: rebuildInsightState(m) };
       });
       let lastRenders: RenderBlock[] = [];
       for (let i = list.length - 1; i >= 0; i--) {
