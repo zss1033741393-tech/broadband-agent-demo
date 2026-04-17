@@ -28,7 +28,7 @@ interface Props {
 // 距底部多少 px 以内视为"在底部"
 const NEAR_BOTTOM_THRESHOLD = 80;
 
-function MessageList({ messages, loading, isStreaming, onEditMessage, onViewReport, hideInsightPanel }: Props) {
+function MessageList({ messages, loading, isStreaming, planGroups, onEditMessage, onViewReport, hideInsightPanel }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   // 用户是否主动向上滚动离开了底部
   const userScrolledUpRef = useRef(false);
@@ -157,9 +157,6 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
                 }
                 if (block.type === 'experience_assurance') {
                   return <ExperienceAssuranceCard key={`ea-${i}`} data={block.data} />;
-                }
-                if (block.type === 'protection_plan') {
-                  return <ProtectionPlanCard key={`pp-${i}`} />;
                 }
                 return null;
               })}
