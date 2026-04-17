@@ -67,6 +67,8 @@ except ImportError as exc:
     sys.exit(1)
 
 _MAX_RECORDS = 15
+_MAX_OUTPUT_BYTES = 60_000   # 单次 stdout 上限；超出时截断 chart_configs series data
+_DAY_TABLE_ROW_WARN = 5_000  # 天表行数超过此值时追加 warning（无论 Phase 几）
 
 
 def _safe_parse_json(raw: str) -> dict:
@@ -91,6 +93,16 @@ def _safe_parse_json(raw: str) -> dict:
         stripped = stripped[1:-1]
         try:
             return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+
+    # 第 1.5 层：修复 LLM 将 args 列表结束符 ] 混入 JSON 对象末尾
+    # 场景：LLM 生成 args=['{"key":"val"]'] 而非 args=['{"key":"val"}']
+    # — 外层 list 的 ] 被误写入 JSON 字符串里，导致对象以 ] 结尾而非 }
+    _candidate = raw.strip()
+    if _candidate.startswith("{") and _candidate.endswith("]"):
+        try:
+            return json.loads(_candidate[:-1] + "}")
         except json.JSONDecodeError:
             pass
 
@@ -238,7 +250,7 @@ def run(payload_json: str) -> str:
 
     data_path = payload.get("data_path") or _resolve_data_path(table_level)
 
-    # 天表 Phase >= 2 时若未加过滤，追加 warning 提醒使用 found_entities
+    # 天表：未加过滤时根据 phase 给出不同强度的 warning
     _day_no_filter_warning: list[str] = []
     if table_level == "day":
         phase_id = payload.get("phase_id") or 1
@@ -288,6 +300,13 @@ def run(payload_json: str) -> str:
 
     df = dfs[0]
 
+    # 天表行数检测：任意 Phase 超阈值都加 warning，提示后续 Phase 应加过滤
+    if table_level == "day" and len(df) > _DAY_TABLE_ROW_WARN:
+        fix_warnings.append(
+            f"天表查询返回 {len(df)} 行（超过 {_DAY_TABLE_ROW_WARN} 行警戒线），"
+            "后续 Phase 请使用本次 found_entities 添加 dimensions 过滤，避免上下文溢出。"
+        )
+
     # 4. 列名兜底：修复后的字段名可能与 fixed_config 里的还有细微差异（如聚合后缀），
     #    做最后一层模糊匹配（startswith 前缀匹配）
     value_columns = _resolve_columns(df, value_columns)
@@ -329,6 +348,7 @@ def run(payload_json: str) -> str:
         "phase_name": payload.get("phase_name"),
         "step_name": payload.get("step_name"),
     }
+    output = _truncate_output_if_oversized(output)
     return json.dumps(output, ensure_ascii=False, default=_json_default)
 
 
@@ -382,6 +402,59 @@ def _json_default(obj: Any) -> Any:
         except Exception:
             return str(obj)
     return str(obj)
+
+
+def _truncate_output_if_oversized(output: dict[str, Any]) -> dict[str, Any]:
+    """若序列化后超过 _MAX_OUTPUT_BYTES，逐级截断 chart_configs series data。
+
+    截断顺序：
+      1. chart_configs 各 series 的 data 列表截半，直到达标或已压缩到空
+      2. description 若为 dict，转为摘要字符串
+    截断后在 fix_warnings 中追加提示，并置 truncated=True。
+    """
+    raw = json.dumps(output, ensure_ascii=False, default=_json_default)
+    if len(raw.encode("utf-8")) <= _MAX_OUTPUT_BYTES:
+        return output
+
+    # 步骤 1：压缩 chart_configs.series[].data
+    chart = output.get("chart_configs") or {}
+    series_list = chart.get("series") if isinstance(chart, dict) else None
+    if isinstance(series_list, list):
+        for _round in range(10):  # 最多压缩 10 轮（每轮截半）
+            changed = False
+            for s in series_list:
+                data = s.get("data") if isinstance(s, dict) else None
+                if isinstance(data, list) and len(data) > 2:
+                    s["data"] = data[: max(2, len(data) // 2)]
+                    changed = True
+            if not changed:
+                break
+            raw = json.dumps(output, ensure_ascii=False, default=_json_default)
+            if len(raw.encode("utf-8")) <= _MAX_OUTPUT_BYTES:
+                output.setdefault("fix_warnings", []).append(
+                    f"chart_configs series data 因输出超限（>{_MAX_OUTPUT_BYTES}B）已截断。"
+                )
+                output["truncated"] = True
+                return output
+
+    # 步骤 2：description 转摘要
+    desc = output.get("description")
+    if isinstance(desc, dict):
+        output["description"] = f"[已截断，原始 keys: {list(desc.keys())}]"
+        raw = json.dumps(output, ensure_ascii=False, default=_json_default)
+        if len(raw.encode("utf-8")) <= _MAX_OUTPUT_BYTES:
+            output.setdefault("fix_warnings", []).append(
+                "description 因输出超限已转为摘要。"
+            )
+            output["truncated"] = True
+            return output
+
+    # 仍超限：标记 truncated，上层不应继续膨胀
+    output.setdefault("fix_warnings", []).append(
+        f"输出仍超过 {_MAX_OUTPUT_BYTES}B，请减少 measures 或添加 dimensions 过滤。"
+    )
+    output["truncated"] = True
+    return output
 
 
 if __name__ == "__main__":

@@ -80,10 +80,16 @@ class Step(BaseModel):
 # ─── 右侧渲染块 ───────────────────────────────────────────────────────────────
 
 class ChartItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     chartId: str
     title: str
     conclusion: str
     echartsOption: dict
+    phaseId: Optional[int] = None
+    stepId: Optional[int] = None
+    phaseName: Optional[str] = None
+    stepName: Optional[str] = None
 
 
 class InsightRenderData(BaseModel):
@@ -108,7 +114,22 @@ class ImageRenderBlock(BaseModel):
     renderData: ImageRenderData
 
 
-RenderBlock = Union[InsightRenderBlock, ImageRenderBlock]
+class ExperienceAssuranceRenderData(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    businessType: str = ""
+    applicationType: str = ""
+    application: str = ""
+    isMock: bool = True
+    taskData: dict = {}
+
+
+class ExperienceAssuranceRenderBlock(BaseModel):
+    renderType: Literal["experience_assurance"]
+    renderData: ExperienceAssuranceRenderData
+
+
+RenderBlock = Union[InsightRenderBlock, ImageRenderBlock, ExperienceAssuranceRenderBlock]
 
 
 # ─── 消息 ─────────────────────────────────────────────────────────────────────

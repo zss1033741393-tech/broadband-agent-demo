@@ -20,6 +20,7 @@ from scipy.stats import norm
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
 
 _MIN_ATTRIBUTION_THRESHOLD = 0.5  # 多 measure 模式下，主导贡献者的判定阈值
+_DEFAULT_TOP_K = 20  # filter_data / chart 最多保留行数（贡献度绝对值最大优先）
 
 
 class AttributionStrategy(InsightStrategy):
@@ -59,7 +60,8 @@ class AttributionStrategy(InsightStrategy):
             grouped["contribution_pct"] = 0.0
 
         grouped = grouped.sort_values("contribution").reset_index()
-        self._filter_data = grouped
+        # 截取贡献度绝对值最大的前 K 行（负向在前，正向在后）
+        self._filter_data = grouped.head(_DEFAULT_TOP_K)
 
         # 找到贡献最大的负向因素
         top_neg = grouped[grouped["contribution"] < 0].head(3)
@@ -94,10 +96,11 @@ class AttributionStrategy(InsightStrategy):
             truncate_labels,
         )
 
-        labels = truncate_labels(grouped[group_column].astype(str).tolist())
-        pct_vals = grouped["contribution_pct"].tolist()
+        display_grouped = grouped.head(_DEFAULT_TOP_K)
+        labels = truncate_labels(display_grouped[group_column].astype(str).tolist())
+        pct_vals = display_grouped["contribution_pct"].tolist()
         # 柱状图颜色：负贡献红色（拉低均值），正贡献绿色（拉高均值）
-        bar_colors = [HIGHLIGHT_RED if v < 0 else HIGHLIGHT_GREEN for v in pct_vals]
+        bar_colors = [HIGHLIGHT_RED if v < 0 else HIGHLIGHT_GREEN for v in display_grouped["contribution_pct"]]
 
         self._chart_configs = {
             "chart_type": "bar",

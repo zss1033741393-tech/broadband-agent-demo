@@ -11,7 +11,7 @@ from agno.team import Team
 from loguru import logger
 
 from core.agent_factory import create_team
-from core.model_loader import inject_prompt_tracer
+from core.model_loader import inject_dynamic_seed, inject_prompt_tracer, load_model_config
 from core.observability.db import db
 from core.observability.tracer import Tracer
 
@@ -57,9 +57,16 @@ class SessionManager:
 
         # 创建 Tracer，向 Team leader 与所有 member 的 model 注入 prompt tracer
         tracer = Tracer(session_hash, db_session_id=db_sid)
+
+        # 是否启用动态 seed（由 model.yaml dynamic_seed: true 控制）
+        _dynamic_seed_enabled = bool(load_model_config().get("dynamic_seed", False))
+
         try:
             if getattr(team, "model", None) is not None:
                 inject_prompt_tracer(team.model, tracer.llm_prompt, agent_name="orchestrator")
+                # seed 注入必须在 tracer 之后：seed_wrapper → tracer_wrapper → class method
+                if _dynamic_seed_enabled:
+                    inject_dynamic_seed(team.model)
         except Exception:
             logger.warning("inject_prompt_tracer 失败 (team leader)")
 
@@ -68,6 +75,9 @@ class SessionManager:
             try:
                 if getattr(member, "model", None) is not None:
                     inject_prompt_tracer(member.model, tracer.llm_prompt, agent_name=member_name)
+                    # seed 注入必须在 tracer 之后
+                    if _dynamic_seed_enabled:
+                        inject_dynamic_seed(member.model)
             except Exception:
                 logger.warning(f"inject_prompt_tracer 失败 (member={member_name})")
 

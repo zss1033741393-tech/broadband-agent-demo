@@ -12,6 +12,8 @@ import pandas as pd
 
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
 
+_DEFAULT_TOP_K = 20  # filter_data / per_group_top2 最多保留行数（top1_value 最高优先）
+
 
 class OutstandingTop2Strategy(InsightStrategy):
     def execute(self, **kwargs) -> None:
@@ -58,7 +60,7 @@ class OutstandingTop2Strategy(InsightStrategy):
         result_df = sorted_vals.reset_index()
         result_df.columns = [group_column, col]
         result_df["is_top2"] = [True, True] + [False] * max(0, len(sorted_vals) - 2)
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         top2_names = ", ".join(top2.index.astype(str).tolist())
         self._description = {
@@ -269,8 +271,10 @@ class OutstandingTop2Strategy(InsightStrategy):
                     row_dict[col] = round(float(v), 4) if pd.notna(v) else None
             rows.append(row_dict)
 
+        # 按 top1_value 降序排列（最突出的排前面），截取 top-K
+        rows.sort(key=lambda r: r.get("top1_value", float("-inf")), reverse=True)
         result_df = pd.DataFrame(rows)
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         # 集中度：用 top1 出现频率
         counter = Counter(top1_measures)
@@ -280,10 +284,15 @@ class OutstandingTop2Strategy(InsightStrategy):
 
         self._significance_score = float(np.clip(concentration, 0.3, 1.0))
 
+        # per_group_top2 截取 top-K（top1_value 最高的前 K 个），避免万级 key 膨胀上下文
+        top_k_groups = [r[group_column] for r in rows[:_DEFAULT_TOP_K]]
+        per_group_top2_topk = {g: per_group_top2[g] for g in top_k_groups if g in per_group_top2}
+
         summary_lines = [
-            f"对 {n_groups} 个 {group_column} 做多指标对比，每个分组的 Top2 指标如下："
+            f"对 {n_groups} 个 {group_column} 做多指标对比，"
+            f"以下为得分最突出的 {min(_DEFAULT_TOP_K, n_groups)} 个分组："
         ]
-        for g, info in list(per_group_top2.items())[:8]:
+        for g, info in list(per_group_top2_topk.items())[:8]:  # 摘要最多 8 行
             t1 = f"{info['top1_measure']}={info['top1_value']}"
             t2 = f", {info['top2_measure']}={info['top2_value']}" if info["top2_measure"] else ""
             summary_lines.append(f"- {g}: {t1}{t2}")
@@ -294,14 +303,15 @@ class OutstandingTop2Strategy(InsightStrategy):
 
         self._description = {
             "mode": "matrix",
-            "per_group_top2": per_group_top2,
+            "per_group_top2": per_group_top2_topk,  # top-K，不含全量
             "most_common_top1": most_common_top1,
             "most_common_count": most_common_count,
             "n_groups": n_groups,
             "summary": "\n".join(summary_lines),
         }
 
-        # 图表：每个 group 的 top1 和 top2 cell 都标红（top1 深红，top2 柔红）
+        # 图表只展示 top-K 最突出分组
+        group_labels = top_k_groups
         groups = truncate_labels(group_labels)
         colors = PALETTE
 
