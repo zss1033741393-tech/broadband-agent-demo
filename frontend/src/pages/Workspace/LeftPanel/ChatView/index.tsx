@@ -138,6 +138,14 @@ function ChatView({ prefillMessage, lazySource }: Props) {
         return;
       }
 
+      if (simAction.type === 'start_with_fault') {
+        const convId = activeId ?? `sim-${Date.now()}`;
+        simConvIdRef.current = convId;
+        store.addUserEvent(`仿真：启动-${simAction.faultName}`);
+        void store.startSimulation(convId, simAction.faultName);
+        return;
+      }
+
       if (simAction.type === 'inject_fault') {
         if (!store.active) {
           store.addUserEvent(content);

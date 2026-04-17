@@ -63,6 +63,17 @@ export interface WifiResultEvent {
   };
 }
 
+export interface ExperienceAssuranceResultEvent {
+  renderType: 'experience_assurance';
+  renderData: {
+    businessType: string;
+    applicationType: string;
+    application: string;
+    isMock: boolean;
+    taskData: Record<string, unknown>;
+  };
+}
+
 export type SseEventName =
   | 'thinking'
   | 'text'
@@ -72,5 +83,6 @@ export type SseEventName =
   | 'render'
   | 'wifi_result'
   | 'report'
+  | 'experience_assurance_result'
   | 'done'
   | 'error';

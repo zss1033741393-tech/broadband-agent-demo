@@ -16,6 +16,7 @@ const SOLO_THRESHOLD = 0.70;
 
 function computeWidth(block: RenderBlock): number {
   if (block.renderType === 'image') return 1.0; // 一图一行，始终全宽
+  if (block.renderType !== 'insight') return 0; // 非图表类型不参与布局
   const chart = block.renderData.charts[0];
   if (!chart) return 0.5;
   const series = (chart.echartsOption.series ?? []) as { type?: string; data?: unknown[] }[];
@@ -44,7 +45,7 @@ function getReport(block: RenderBlock): string | undefined {
 }
 
 function getPhaseId(block: RenderBlock): number | undefined {
-  if (block.renderType === 'image') return undefined;
+  if (block.renderType !== 'insight') return undefined;
   return block.renderData.charts[0]?.phaseId;
 }
 
@@ -107,7 +108,8 @@ function computeRows(renders: RenderBlock[], insightState?: InsightState): Layou
 
 function renderBlock(block: RenderBlock) {
   if (block.renderType === 'image') return <ImageDisplay data={block.renderData} />;
-  return <InsightDisplay data={block.renderData} />;
+  if (block.renderType === 'insight') return <InsightDisplay data={block.renderData} />;
+  return null; // experience_assurance 等类型在左侧对话流中渲染，右侧跳过
 }
 
 interface Props {

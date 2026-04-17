@@ -112,7 +112,7 @@ function ReportView({ content, charts, onBack }: Props) {
       <div className={styles.header}>
         <span className={styles.title}>网络性能分析报告</span>
         <button className={styles.backBtn} onClick={onBack}>
-          ‹ 返回地图
+          ‹ 返回上一页
         </button>
       </div>
       <div className={styles.scroll}>

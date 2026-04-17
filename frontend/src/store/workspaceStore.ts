@@ -11,6 +11,7 @@ import type {
   ErrorEvent as SseErrorEvent,
   ReportEvent,
   WifiResultEvent,
+  ExperienceAssuranceResultEvent,
   StepStartEvent,
   StepEndEvent,
   SubStepEvent,
@@ -66,7 +67,7 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 从历史 message 重建 blocks */
+/** 从历史 message 重建 blocks，包括从 renderBlocks 重建 report_ready */
 function rebuildBlocks(m: Message): MessageBlock[] {
   const blocks: MessageBlock[] = [];
   if (m.thinkingContent?.trim()) {
@@ -80,15 +81,58 @@ function rebuildBlocks(m: Message): MessageBlock[] {
     );
     // step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
     if (!step.items?.length) {
+      // 旧消息无 items，从 subSteps 重建（已过滤）
       step.items = step.subSteps.map((sub) => ({ type: 'sub_step' as const, data: sub }));
+    } else {
+      // 新消息 items 来自 API，直接过滤加载类条目
+      step.items = step.items.filter(
+        (item) => item.type !== 'sub_step' || !SKILL_LOAD_TOOLS.has(item.data.name),
+      );
     }
-
     blocks.push({ type: 'step', stepId: step.stepId });
   }
+  // experience_assurance 卡片在流式中于 steps 完成后、Orchestrator 总结文本之前到达，
+  // 历史重建保持相同顺序：steps → experience_assurance → text
+  for (const rb of m.renderBlocks ?? []) {
+    if (rb.renderType === 'experience_assurance') {
+      blocks.push({ type: 'experience_assurance', data: rb.renderData });
+    }
+  }
+
   if (m.content?.trim()) {
     blocks.push({ type: 'text', content: m.content });
   }
+  // 从 renderBlocks 重建 report_ready block（insight 报告回放）
+  // insight_query 每次查询产出单条 chart renderBlock（markdownReport=''），
+  // insight_report 产出一条 markdownReport renderBlock（charts=[]）。
+  // 历史回放需把所有图表合并，再配上 markdownReport，才能还原带插图的报告。
+  const insightRBs = (m.renderBlocks ?? []).filter((rb) => rb.renderType === 'insight');
+  const allCharts: ChartItem[] = insightRBs.flatMap((rb) => (rb.renderData as { charts?: ChartItem[] }).charts ?? []);
+  const reportRB = insightRBs.find((rb) => (rb.renderData as { markdownReport?: string }).markdownReport?.trim());
+  if (reportRB) {
+    blocks.push({
+      type: 'report_ready',
+      content: (reportRB.renderData as { markdownReport: string }).markdownReport,
+      charts: allCharts,
+    });
+  }
+
   return blocks;
+}
+
+/** 从历史 message 的 steps[].textContent 重解析 insightState */
+function rebuildInsightState(m: Message): import('@/types/insight').InsightState | undefined {
+  const parser = new InsightEventParser();
+  let state: import('@/types/insight').InsightState | undefined;
+  for (const step of m.steps ?? []) {
+    const text = (step as Step & { textContent?: string }).textContent ?? '';
+    if (!text) continue;
+    const { events } = parser.feed(text);
+    for (const evt of events) {
+      state = applyInsightEvent(state, evt);
+    }
+  }
+  return state;
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -111,7 +155,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   startNewConversation: () => {
-    set({ leftView: 'chat', activeConversationId: null, activeReport: null });
+    set({ leftView: 'chat', activeConversationId: null, activeReport: null, currentRenders: [] });
   },
 
   backToList: () => {
@@ -143,7 +187,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       const resp = await getMessages(id);
       const list = (resp.list ?? []).map((m) => {
         if (m.role !== 'assistant') return m;
-        return { ...m, blocks: rebuildBlocks(m) };
+        return { ...m, blocks: rebuildBlocks(m), insightState: rebuildInsightState(m) };
       });
       let lastRenders: RenderBlock[] = [];
       for (let i = list.length - 1; i >= 0; i--) {
@@ -437,6 +481,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
               if (get().activeConversationId === convId) {
                 set((s) => ({ currentRenders: [...s.currentRenders, ...imageBlocks] }));
               }
+              break;
+            }
+            case 'experience_assurance_result': {
+              const d = e.data as ExperienceAssuranceResultEvent;
+              const rb: RenderBlock = {
+                renderType: 'experience_assurance',
+                renderData: d.renderData,
+              };
+              updateAssistant((m) => ({
+                ...m,
+                blocks: [...(m.blocks ?? []), { type: 'experience_assurance', data: d.renderData }],
+                renderBlocks: [...(m.renderBlocks ?? []), rb],
+              }));
               break;
             }
             case 'report': {

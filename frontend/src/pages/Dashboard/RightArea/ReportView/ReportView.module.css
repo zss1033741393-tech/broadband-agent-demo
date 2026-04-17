@@ -9,7 +9,7 @@
   border-left: 1px solid #1e2d3d;
 }
 
-/* ── 顶部 header：标题绝对居中，返回按钮固定右侧 ── */
+/* ── 顶部 header：标题绝对居中，返回按钮固定左侧 ── */
 .header {
   position: relative;
   display: flex;
@@ -32,7 +32,7 @@
 
 .backBtn {
   position: absolute;
-  right: 20px;
+  left: 20px;
   display: inline-flex;
   align-items: center;
   gap: 5px;

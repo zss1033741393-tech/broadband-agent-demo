@@ -45,6 +45,7 @@ export type MessageBlock =
   | { type: 'step'; stepId: string }
   | { type: 'text'; content: string }
   | { type: 'report_ready'; content: string; charts: ChartItem[] }
+  | { type: 'experience_assurance'; data: import('./render').ExperienceAssuranceRenderData }
   | { type: 'protection_plan' };
 
 export interface Message {

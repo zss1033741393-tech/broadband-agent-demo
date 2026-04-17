@@ -37,22 +37,20 @@
   border-bottom: 1px solid #1a2332;
 }
 
-/* 右列加左边框分隔 */
+/* 右列也加左边框分隔 */
 .group:nth-child(even) {
   border-left: 1px solid #1a2332;
 }
 
-/* 最后一个分组横跨两列 */
+/* 差异化承载（最后一个）横跨两列 */
 .group:last-child {
   grid-column: 1 / -1;
 }
 
 .groupTitle {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #60a5fa;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid #1a2332;
@@ -132,6 +130,6 @@
 .footerLine {
   margin: 0;
   font-size: 12px;
-  color: #6b7280;
+  color: #c9d5e0;
   line-height: 1.8;
 }

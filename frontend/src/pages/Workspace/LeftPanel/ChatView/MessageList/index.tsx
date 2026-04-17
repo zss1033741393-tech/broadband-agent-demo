@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Empty, Skeleton } from 'antd';
 import type { Message } from '@/types/message';
 import type { ChartItem } from '@/types/render';
@@ -11,6 +11,8 @@ import ProtectionPlanCard from '../ProtectionPlanCard';
 import InsightPhasePanel from '../InsightPhasePanel';
 import ErrorCard from '../ErrorCard';
 import ReportFloatBtn from '@/components/ReportFloatBtn';
+import ExperienceAssuranceCard from '../ExperienceAssuranceCard';
+import ProtectionPlanCard from '../ProtectionPlanCard';
 import styles from './MessageList.module.css';
 
 interface Props {
@@ -24,15 +26,49 @@ interface Props {
   hideInsightPanel?: boolean;
 }
 
-function MessageList({ messages, loading, isStreaming, planGroups, onEditMessage, onViewReport, hideInsightPanel }: Props) {
+// 距底部多少 px 以内视为"在底部"
+const NEAR_BOTTOM_THRESHOLD = 80;
+
+function MessageList({ messages, loading, isStreaming, onEditMessage, onViewReport, hideInsightPanel }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 用户是否主动向上滚动离开了底部
+  const userScrolledUpRef = useRef(false);
+  // 记录消息数量，用于判断是否新增了消息（切换会话 / 发送新消息 → 强制回底）
+  const prevMsgCountRef = useRef(messages.length);
+
+  const isNearBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD;
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  // onScroll prop 直接绑定，避免 useEffect 时机问题（初始空状态下 scrollRef 为 null）
+  const handleScroll = useCallback(() => {
+    userScrolledUpRef.current = !isNearBottom();
+  }, [isNearBottom]);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
+    const msgCount = messages.length;
+    const prevCount = prevMsgCountRef.current;
+    prevMsgCountRef.current = msgCount;
+
+    // 新增了消息（用户发送 / 切换会话）→ 无条件滚到底并重置标志
+    if (msgCount > prevCount) {
+      userScrolledUpRef.current = false;
+      scrollToBottom();
+      return;
     }
-  }, [messages, isStreaming]);
+
+    // 流式更新中：用户没有向上滚 → 持续跟随底部
+    if (isStreaming && !userScrolledUpRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, isStreaming, scrollToBottom]);
 
   if (loading) {
     return (
@@ -59,7 +95,7 @@ function MessageList({ messages, loading, isStreaming, planGroups, onEditMessage
   }
 
   return (
-    <div className={styles.scroll} ref={scrollRef}>
+    <div className={styles.scroll} ref={scrollRef} onScroll={handleScroll}>
       <div className={styles.list}>
         {messages.map((msg) => {
           if (msg.role === 'user') {
@@ -119,6 +155,12 @@ function MessageList({ messages, loading, isStreaming, planGroups, onEditMessage
                 }
                 if (block.type === 'report_ready') {
                   return null;
+                }
+                if (block.type === 'experience_assurance') {
+                  return <ExperienceAssuranceCard key={`ea-${i}`} data={block.data} />;
+                }
+                if (block.type === 'protection_plan') {
+                  return <ProtectionPlanCard key={`pp-${i}`} />;
                 }
                 return null;
               })}

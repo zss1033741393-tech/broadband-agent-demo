@@ -88,10 +88,13 @@ interface SimulationState {
   _lastSegType: string;
   _eventSeq: number;
 
+  pendingFaultName: string;
+  resetKey: number;
+
   // ── actions ──
   addUserEvent: (text: string) => void;
   addSystemEvent: (text: string) => void;
-  startSimulation: (convId: string) => Promise<void>;
+  startSimulation: (convId: string, faultName?: string) => Promise<void>;
   injectFault: (convId: string, faultName: string) => Promise<void>;
   remediate: () => Promise<void>;
   reset: () => void;
@@ -125,6 +128,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   summaries: [],
   convId: null,
   currentFaultName: '',
+  pendingFaultName: '',
+  resetKey: 0,
   simEvents: [],
   _abortCtrl: null,
   _lastSegType: '',
@@ -144,9 +149,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }));
   },
 
-  startSimulation: async (convId: string) => {
+  startSimulation: async (convId: string, faultName?: string) => {
     get()._abortCtrl?.abort();
     const ctrl = new AbortController();
+    const startText = faultName
+      ? `仿真已启动，正在运行基线段（后台计算中，请稍候）...（基线完成后将自动注入故障：${faultName}）`
+      : '仿真已启动，正在运行基线段（后台计算中，请稍候）...';
     set((s) => ({
       active: true,
       streaming: true,
@@ -156,11 +164,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       segments: [],
       summaries: [],
       currentFaultName: '',
+      pendingFaultName: faultName ?? '',
+      resetKey: s.resetKey + 1,
       _abortCtrl: ctrl,
       _lastSegType: '',
       simEvents: [
         ...s.simEvents,
-        { id: `sim-${s._eventSeq + 1}`, kind: 'system' as const, text: '仿真已启动，正在运行基线段（后台计算中，请稍候）...' },
+        { id: `sim-${s._eventSeq + 1}`, kind: 'system' as const, text: startText },
       ],
       _eventSeq: s._eventSeq + 1,
     }));
@@ -344,7 +354,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   reset: () => {
     get()._abortCtrl?.abort();
-    set({
+    set((s) => ({
       active: false,
       streaming: false,
       phase: 'idle',
@@ -353,10 +363,12 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       summaries: [],
       convId: null,
       currentFaultName: '',
+      pendingFaultName: '',
+      resetKey: s.resetKey + 1,
       simEvents: [],
       _abortCtrl: null,
       _lastSegType: '',
-    });
+    }));
   },
 }));
 
@@ -406,6 +418,12 @@ function _handleSegEnd(payload: SimSegEndPayload): void {
     const seq = s._eventSeq;
 
     if (payload.segType === 'baseline') {
+      const { pendingFaultName, convId } = s;
+      if (pendingFaultName && convId) {
+        // 保持 streaming: true，避免图表视窗跳回基线全览再重新滚动
+        setTimeout(() => { void useSimulationStore.getState().injectFault(convId, pendingFaultName); }, 0);
+        return { summaries, pendingFaultName: '', _eventSeq: seq };
+      }
       return { summaries, streaming: false, _eventSeq: seq };
     }
 
@@ -416,9 +434,9 @@ function _handleSegEnd(payload: SimSegEndPayload): void {
         kind: 'system',
         text: diagText,
       };
-      // Auto-trigger remediation after this state update
+      // 保持 streaming: true，避免图表视窗跳回全览再重新滚动
       setTimeout(() => { void useSimulationStore.getState().remediate(); }, 0);
-      return { summaries, simEvents: [...s.simEvents, newEvt], _eventSeq: seq + 1 };
+      return { summaries, streaming: true, simEvents: [...s.simEvents, newEvt], _eventSeq: seq + 1 };
     }
 
     if (payload.segType === 'recovery') {

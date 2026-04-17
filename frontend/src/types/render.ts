@@ -23,6 +23,15 @@ export interface InsightRenderData {
   markdownReport: string;
 }
 
+export interface ExperienceAssuranceRenderData {
+  businessType: string;
+  applicationType: string;
+  application: string;
+  isMock: boolean;
+  taskData: Record<string, unknown>;
+}
+
 export type RenderBlock =
   | { renderType: 'image'; renderData: ImageRenderData }
-  | { renderType: 'insight'; renderData: InsightRenderData };
+  | { renderType: 'insight'; renderData: InsightRenderData }
+  | { renderType: 'experience_assurance'; renderData: ExperienceAssuranceRenderData };

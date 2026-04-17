@@ -28,6 +28,7 @@ function SimulationView() {
   const phase = useSimulationStore((s) => s.phase);
   const reset = useSimulationStore((s) => s.reset);
 
+  const resetKey = useSimulationStore((s) => s.resetKey);
   const { step, throughput, buffer, stall, tcpRetrans, jitter, frameGen, frameDrop } = chartData;
 
   // frame_drop shown as negative bars (below zero) for visual separation
@@ -51,6 +52,7 @@ function SimulationView() {
       <div className={styles.charts}>
         {/* Chart 1 — 端到端上行带宽 */}
         <TimeSeriesChart
+          key={`chart1-${resetKey}`}
           title="端到端上行带宽时序图"
           height={240}
           xData={step}
@@ -64,6 +66,7 @@ function SimulationView() {
 
         {/* Chart 2 — 缓冲区水位 */}
         <TimeSeriesChart
+          key={`chart2-${resetKey}`}
           title="缓冲区水位时序图"
           height={200}
           xData={step}
@@ -76,6 +79,7 @@ function SimulationView() {
 
         {/* Chart 3 — 卡顿状态 */}
         <TimeSeriesChart
+          key={`chart3-${resetKey}`}
           title="卡顿状态时序图"
           height={160}
           xData={step}
@@ -89,6 +93,7 @@ function SimulationView() {
 
         {/* Chart 4 — TCP重传率 + 时延抖动（双Y轴） */}
         <TimeSeriesChart
+          key={`chart4-${resetKey}`}
           title="TCP重传率 / 时延抖动时序图"
           height={240}
           xData={step}
@@ -107,6 +112,7 @@ function SimulationView() {
 
         {/* Chart 5 — 帧生成 / 帧丢弃 */}
         <TimeSeriesChart
+          key={`chart5-${resetKey}`}
           title="帧生成 / 帧丢弃时序图"
           height={160}
           xData={step}

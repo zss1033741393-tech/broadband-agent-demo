@@ -87,6 +87,14 @@ function DashboardLeftPanel({ onViewReport }: Props) {
         return;
       }
 
+      if (simAction.type === 'start_with_fault') {
+        const simConvId = `sim-${Date.now()}`;
+        simConvIdRef.current = simConvId;
+        simStore.addUserEvent(`仿真：启动-${simAction.faultName}`);
+        void simStore.startSimulation(simConvId, simAction.faultName);
+        return;
+      }
+
       if (simAction.type === 'inject_fault') {
         if (!simStore.active) {
           simStore.addUserEvent(content);

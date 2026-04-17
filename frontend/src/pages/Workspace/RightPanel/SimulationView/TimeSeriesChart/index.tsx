@@ -63,9 +63,8 @@ function buildMarkArea(xData: number[], segments: SimSegment[]) {
 function buildOption(props: Props): EChartsOption {
   const { xData, series, yAxes, markLines, segments, streaming } = props;
   const total = xData.length;
-  const startPct = streaming && total > WINDOW_SIZE
-    ? Math.round(((total - WINDOW_SIZE) / total) * 100)
-    : 0;
+  const windowStart = streaming && total > WINDOW_SIZE ? total - WINDOW_SIZE : 0;
+  const windowEnd = total > 0 ? total - 1 : 0;
 
   const markArea = buildMarkArea(xData, segments);
 
@@ -156,8 +155,8 @@ function buildOption(props: Props): EChartsOption {
     dataZoom: [
       {
         type: 'inside',
-        start: startPct,
-        end: 100,
+        startValue: windowStart,
+        endValue: windowEnd,
         zoomOnMouseWheel: !streaming,
         moveOnMouseMove: !streaming,
       },
@@ -165,8 +164,8 @@ function buildOption(props: Props): EChartsOption {
         ? [
             {
               type: 'slider' as const,
-              start: startPct,
-              end: 100,
+              startValue: 0,
+              endValue: windowEnd,
               height: 18,
               bottom: 4,
               borderColor: '#30363d',
@@ -230,9 +229,10 @@ function TimeSeriesChart(props: Props) {
     // Skip if nothing relevant changed and we already have data
     if (!lenChanged && !streamingChanged && prevLenRef.current > 0) return;
 
-    const isAppend = xData.length > prevLenRef.current;
-    // notMerge=false (merge) when appending; notMerge=true (replace) when state changes
-    chart.setOption(buildOption(props), !isAppend);
+    // notMerge=true 仅在初始化时使用；streaming→false 只需 merge 更新 dataZoom/grid，
+    // 无需重建 series，避免大数据量下的全量重绘卡顿
+    const needsFullRebuild = prevLenRef.current === 0;
+    chart.setOption(buildOption(props), needsFullRebuild);
     // Ensure canvas dimensions are correct (guards against 0-width init edge cases)
     chart.resize();
     prevLenRef.current = xData.length;
