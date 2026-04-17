@@ -152,7 +152,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   startNewConversation: () => {
-    set({ leftView: 'chat', activeConversationId: null, activeReport: null });
+    set({ leftView: 'chat', activeConversationId: null, activeReport: null, currentRenders: [] });
   },
 
   backToList: () => {
