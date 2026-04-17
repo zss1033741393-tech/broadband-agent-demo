@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Union
 
 _DB_PATH = Path(__file__).resolve().parents[3] / "data" / "api.db"
 
-_TITLE_RE = re.compile(r"^(\S+)[：:]$")
-_FIELD_RE = re.compile(r"^\s{4}(\S+)[：:]\s*(.+)$")
+_TITLE_RE = re.compile(r"^(.+?)\s*[：:]$")
+_FIELD_RE = re.compile(r"^\s{4}(.+?)\s*[：:]\s*(.+)$")
 
 
 def _parse_value(raw: str) -> Union[str, bool]:

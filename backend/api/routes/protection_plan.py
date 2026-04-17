@@ -79,8 +79,8 @@ _DEFAULT_PLAN_TEXT = (
 
 # ─── 方案文本 → 结构化 JSON 解析 ──────────────────────────────────────────────
 
-_TITLE_RE = re.compile(r"^(\S+)[：:]$")
-_FIELD_RE = re.compile(r"^\s{4}(\S+)[：:]\s*(.+)$")
+_TITLE_RE = re.compile(r"^(.+?)\s*[：:]$")
+_FIELD_RE = re.compile(r"^\s{4}(.+?)\s*[：:]\s*(.+)$")
 
 
 def _parse_value(raw: str) -> Union[str, bool]:
@@ -136,7 +136,7 @@ async def get_protection_plan() -> ApiResponse:
         )
     else:
         data = ProtectionPlanData(
-            groups=[ProtectionPlanGroup(**g) for g in record["planJson"].get("groups", [])],
+            groups=parse_plan_text(record["planText"]),
             planText=record["planText"],
             updatedAt=record["updatedAt"],
         )
