@@ -1,6 +1,8 @@
 """从 configs/model.yaml 加载模型配置，返回 agno Model 实例。"""
 
 import os
+import random
+import types
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -89,6 +91,13 @@ def create_model(config: Dict[str, Any] = None):
         "timeout": config.get("timeout", 60),
     }
 
+    # 静态请求参数（top_p / presence_penalty / repetition_penalty）
+    # 仅在 model.yaml 中显式配置时传入，避免覆盖 provider 默认值
+    _static_request_params: Dict[str, Any] = {}
+    for _key in ("top_p", "presence_penalty", "repetition_penalty"):
+        if _key in config:
+            _static_request_params[_key] = config[_key]
+
     # 自定义 role_map（用于不支持 developer 角色的 OpenAI 兼容 API）
     role_map = config.get("role_map")
 
@@ -133,8 +142,63 @@ def create_model(config: Dict[str, Any] = None):
             params["role_map"] = role_map
         model = OpenAILike(**params)
 
-    logger.info(f"模型创建成功: {provider} / {common_params['id']}")
+    # 将静态请求参数（top_p / presence_penalty / repetition_penalty）写入 request_params
+    if _static_request_params:
+        try:
+            existing = getattr(model, "request_params", None) or {}
+            model.request_params = {**existing, **_static_request_params}
+            logger.debug(f"静态请求参数已设置: {_static_request_params}")
+        except Exception:
+            logger.warning("model.request_params 写入失败，静态参数未生效")
+
+    logger.info(
+        f"模型创建成功: {provider} / {common_params['id']}"
+        + (f"  静态参数: {_static_request_params}" if _static_request_params else "")
+    )
     return model
+
+
+def inject_dynamic_seed(model) -> None:
+    """每次 API 调用前注入随机 seed，解决阿里云百炼（Model Studio）隐式缓存问题。
+
+    实现要点：
+    - 动态 seed 必须在每次请求时重新生成，不能写入配置文件
+    - 必须在 inject_prompt_tracer 之后调用，以确保包装层顺序正确：
+        seed_wrapper → tracer_wrapper → model.__class__.ainvoke_stream → API
+    - 通过合并 self.request_params 保留静态参数（top_p / presence_penalty 等）
+
+    Args:
+        model: agno Model 实例（已由 create_model() 创建）
+    """
+    # 优先捕获实例级覆盖（如已有 inject_prompt_tracer 绑定的 tracer bound method）
+    _current_bound = model.__dict__.get("ainvoke_stream")  # bound method or None
+    _class_method = model.__class__.ainvoke_stream
+    _is_bound = _current_bound is not None
+
+    async def _seeded_ainvoke_stream(self, messages, *args, **kwargs):
+        # 直接赋值 agno 的专用 Optional[int] 字段 self.seed，不走 request_params dict 路径。
+        # 背景：request_params 是 Dict[str, Any]，其中的 int 在 openai SDK 的 Pydantic
+        # 序列化层可能被 coerce 成 float，导致百炼服务端报 "'seed' must be Integer"（400）。
+        # 使用专用字段后，agno 的 get_request_params() 直接读取 self.seed（Optional[int]）
+        # 并放入 base_params，类型不经过任何 dict 转换，始终保持 Python int。
+        _SEED_MAX = 2147483647  # 2**31 - 1，32 位整数上限，各平台 JSON 无歧义
+        self.seed = random.randint(0, _SEED_MAX)
+        # 同步清除 request_params 中残留的 seed 键，避免 update() 覆盖专用字段值
+        _rp = getattr(self, "request_params", None)
+        if isinstance(_rp, dict) and "seed" in _rp:
+            self.request_params = {k: v for k, v in _rp.items() if k != "seed"}
+        logger.debug(f"dynamic seed set: {self.seed} (type={type(self.seed).__name__})")
+        if _is_bound:
+            # 调用已绑定的实例方法（无需再传 self）
+            async for chunk in _current_bound(messages, *args, **kwargs):
+                yield chunk
+        else:
+            # 调用类方法（需要传 self）
+            async for chunk in _class_method(self, messages, *args, **kwargs):
+                yield chunk
+
+    model.ainvoke_stream = types.MethodType(_seeded_ainvoke_stream, model)
+    logger.debug(f"inject_dynamic_seed: 动态 seed 注入完成 (model={type(model).__name__})")
 
 
 def inject_prompt_tracer(model, prompt_callback: Callable[..., None], agent_name: str = "") -> None:

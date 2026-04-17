@@ -67,7 +67,7 @@ DEFAULT_CONFIG_PATH: Path = _PACKAGE_DIR / "config.ini"
 
 # 例子模板路径 — 用户首次部署时可 cp example → config.ini
 EXAMPLE_CONFIG_PATH: Path = _PACKAGE_DIR / "config.ini.example"
-
+MANAGE_CONFIG_PATH: Path = _PACKAGE_DIR / "config_232.ini"
 # 延迟导入 NCELogin
 NCELogin: Optional[Any] = None
 _ncelogin_import_error: Optional[BaseException] = None
@@ -115,6 +115,7 @@ def require_config(config_path: Optional[Path] = None) -> Path:
 __all__ = [
     "NCELogin",
     "DEFAULT_CONFIG_PATH",
+    "MANAGE_CONFIG_PATH",
     "EXAMPLE_CONFIG_PATH",
     "require_ncelogin",
     "require_config",

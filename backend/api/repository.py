@@ -18,6 +18,7 @@ from loguru import logger
 
 from api.models import (
     Conversation,
+    ExperienceAssuranceRenderBlock,
     ImageRenderBlock,
     InsightRenderBlock,
     Message,
@@ -270,6 +271,8 @@ def _row_to_message(row: aiosqlite.Row) -> Message:
             render_blocks.append(InsightRenderBlock(**rb))
         elif rb.get("renderType") == "image":
             render_blocks.append(ImageRenderBlock(**rb))
+        elif rb.get("renderType") == "experience_assurance":
+            render_blocks.append(ExperienceAssuranceRenderBlock(**rb))
 
     return Message(
         id=row["id"],

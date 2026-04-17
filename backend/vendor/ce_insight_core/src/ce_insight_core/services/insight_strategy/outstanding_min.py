@@ -12,6 +12,8 @@ import pandas as pd
 
 from ce_insight_core.services.insight_strategy.base_insight import InsightStrategy
 
+_DEFAULT_TOP_K = 20  # filter_data / per_group_worst 最多保留行数（worst-first）
+
 
 class OutstandingMinStrategy(InsightStrategy):
     def execute(self, **kwargs) -> None:
@@ -57,7 +59,7 @@ class OutstandingMinStrategy(InsightStrategy):
 
         result_df = sorted_vals.reset_index()
         result_df.columns = [group_column, col]
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         self._description = {
             "min_group": str(min_group),
@@ -256,8 +258,10 @@ class OutstandingMinStrategy(InsightStrategy):
                     row_dict[col] = round(float(v), 4) if pd.notna(v) else None
             rows.append(row_dict)
 
+        # 按 worst_value 升序排列（最差的排前面），截取 top-K
+        rows.sort(key=lambda r: r.get("worst_value", float("inf")))
         result_df = pd.DataFrame(rows)
-        self._filter_data = result_df
+        self._filter_data = result_df.head(_DEFAULT_TOP_K)
 
         # 集中度：最差 measure 出现频次最高者
         counter = Counter(worst_measures)
@@ -268,8 +272,15 @@ class OutstandingMinStrategy(InsightStrategy):
         # 显著性：集中度越高（共同短板越明显），显著性越高
         self._significance_score = float(np.clip(concentration, 0.3, 1.0))
 
-        summary_lines = [f"对 {n_groups} 个 {group_column} 做多指标对比，每个分组的最差维度如下："]
-        for g, info in list(per_group_worst.items())[:8]:  # 最多展示 8 个
+        # per_group_worst 截取 top-K（worst_value 最低的前 K 个），避免万级 key 膨胀上下文
+        top_k_groups = [r[group_column] for r in rows[:_DEFAULT_TOP_K]]
+        per_group_worst_topk = {g: per_group_worst[g] for g in top_k_groups if g in per_group_worst}
+
+        summary_lines = [
+            f"对 {n_groups} 个 {group_column} 做多指标对比，"
+            f"以下为得分最差的 {min(_DEFAULT_TOP_K, n_groups)} 个分组："
+        ]
+        for g, info in list(per_group_worst_topk.items())[:8]:  # 摘要最多 8 行
             summary_lines.append(f"- {g}: {info['measure']} = {info['value']}")
         if most_common_count >= 2:
             summary_lines.append(
@@ -281,15 +292,15 @@ class OutstandingMinStrategy(InsightStrategy):
 
         self._description = {
             "mode": "matrix",
-            "per_group_worst": per_group_worst,
+            "per_group_worst": per_group_worst_topk,  # top-K，不含全量
             "most_common_worst": most_common_worst,
             "most_common_count": most_common_count,
             "n_groups": n_groups,
             "summary": "\n".join(summary_lines),
         }
 
-        # 图表：分组柱状图（x=group，每个 measure 一个系列）
-        # 对每个 group 各自的 worst cell 使用 HIGHLIGHT_RED，其他用 PALETTE
+        # 图表只展示 top-K 最差分组
+        group_labels = top_k_groups
         groups = truncate_labels(group_labels)
         colors = PALETTE
 

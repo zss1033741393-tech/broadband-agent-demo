@@ -8,6 +8,20 @@ temperature: 0.3
 max_tokens: 4096
 timeout: 60
 
+# ──────────────────────────────────────────────────────────────────────────────
+# 反缓存 / 随机性参数（可选）— 主要用于阿里云百炼（Model Studio）隐式缓存场景
+#
+# 阿里云百炼存在无法关闭的隐式缓存：相同 prompt + 固定 seed 必然命中缓存，
+# 导致旧错误回复被持续复现。启用 dynamic_seed 后，每次请求生成随机种子打破缓存。
+#
+# 其他 provider（OpenAI / OpenRouter 等）无此问题，保持注释即可。
+# ──────────────────────────────────────────────────────────────────────────────
+
+# dynamic_seed: true        # 每次请求随机 seed（解决百炼隐式缓存的核心手段）
+# top_p: 0.9                # 核采样阈值 [0,1]；与 temperature 建议二选一调整
+# presence_penalty: 0.5     # 已出现 token 惩罚 [-2,2]；降低重复度
+# repetition_penalty: 1.05  # 重复序列惩罚 [>1.0]；阿里云百炼专属参数
+
 # 角色映射（可选）— 用于不支持 developer 角色的 OpenAI 兼容 API（如 Qwen、DeepSeek 等）
 # 取消注释以下内容即可将 system 角色保持为 system（而非 OpenAI 新规的 developer）
 role_map:
