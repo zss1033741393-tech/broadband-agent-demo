@@ -67,6 +67,13 @@ async def init_db() -> None:
                 status                TEXT DEFAULT 'done',
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS protection_plans (
+                id         INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                plan_text  TEXT NOT NULL DEFAULT '',
+                plan_json  TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL
+            );
         """)
         await conn.commit()
     logger.info(f"API DB 初始化完成: {_DB_PATH}")
@@ -285,3 +292,37 @@ def _row_to_message(row: aiosqlite.Row) -> Message:
         renderBlocks=render_blocks,
         createdAt=row["created_at"],
     )
+
+
+# ─── Protection Plan CRUD ────────────────────────────────────────────────────
+
+async def get_protection_plan() -> Optional[dict]:
+    """读取当前保障方案，无记录时返回 None。"""
+    async with _get_conn() as conn:
+        async with conn.execute(
+            "SELECT plan_text, plan_json, updated_at FROM protection_plans WHERE id = 1"
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    return {
+        "planText": row["plan_text"],
+        "planJson": json.loads(row["plan_json"]),
+        "updatedAt": row["updated_at"],
+    }
+
+
+async def upsert_protection_plan(plan_text: str, plan_json: str) -> str:
+    """插入或更新保障方案（单行表，id 固定为 1）。返回 updated_at。"""
+    now = _now_iso()
+    async with _get_conn() as conn:
+        await conn.execute(
+            "INSERT INTO protection_plans (id, plan_text, plan_json, updated_at) "
+            "VALUES (1, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET plan_text = excluded.plan_text, "
+            "plan_json = excluded.plan_json, updated_at = excluded.updated_at",
+            (plan_text, plan_json, now),
+        )
+        await conn.commit()
+    logger.info("保障方案已持久化")
+    return now
