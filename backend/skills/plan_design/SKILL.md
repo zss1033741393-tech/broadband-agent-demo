@@ -15,6 +15,7 @@ description: "方案设计：根据用户画像或洞察摘要，生成 5 段式
 
 - ✅ 综合目标任务的画像已齐全（7 槽填充完成）
 - ✅ 数据洞察后用户要求生成优化方案，Insight 摘要已作为 hints 提供给 Planning
+- ✅ 编辑方案：用户要求修改当前保障方案的某些字段（通过 plan_store 读取当前方案后局部修改）
 - ❌ 画像尚未齐全（应先调用 `goal_parsing`）
 - ❌ 单点功能调用（场景 3 直达 Provisioning，不经过 Planning）
 
@@ -223,6 +224,8 @@ CEI体验感知：
 
 ## How to Use
 
+### 场景 1/2：从画像生成新方案
+
 1. PlanningAgent 调用 `get_skill_instructions("plan_design")` 获取本指令
 2. **强制**加载 `get_skill_reference("plan_design", "examples.md")` 查看 few-shot 样例（非可选；Instructional 范式 few-shot 是推理锚点）
 3. **判据自检**：确认画像中以下字段是否齐全：`user_type / package_type / scenario / guarantee_target / guarantee_app / complaint_history`；字段缺失 → 回到 `goal_parsing`，**禁止补默认值**
@@ -232,6 +235,34 @@ CEI体验感知：
 7. **不调用任何脚本**，直接用 LLM 推理生成 5 段方案
 8. 把生成的方案交给 `plan_review` 校验
 9. 校验完成后交回 PlanningAgent 主流程，由 Orchestrator 拆分派发
+
+### 场景 4：编辑现有方案
+
+当 PlanningAgent 收到 `[任务类型: 编辑方案]` 时：
+
+1. PlanningAgent 已通过 `plan_store/read_plan.py` 获取当前方案文本
+2. 加载本指令 `get_skill_instructions("plan_design")` 和 `get_skill_reference("plan_design", "examples.md")`
+3. 解析用户的编辑指令，对照当前方案进行**局部修改**：
+   - "将XX开启" → 对应字段改为 `True`
+   - "将XX关闭" → 对应字段改为 `False`
+   - "把XX改为YY" → 对应字段值修改为 `YY`
+   - "编辑方案"（无具体指令）→ 展示当前方案，询问用户想修改哪些内容
+4. 修改后的方案必须仍然符合 §输出结构契约 和 §禁用段子字段强制规范
+5. **跳过 goal_parsing**（不需要槽位追问）
+6. 仍需调用 `plan_review` 校验修改后的方案
+7. 修改后的方案返回给 Orchestrator，走 §4.6 确认流程（含 save_plan 持久化）
+
+**编辑操作示例**：
+
+| 用户指令 | 修改动作 |
+|---|---|
+| "将偶发卡顿定界开启" | `故障诊断` 段 → `偶发卡顿定界：True` |
+| "把CEI模型改为游戏模型" | `CEI体验感知` 段 → `CEI模型：游戏模型` |
+| "开启差异化承载" | `差异化承载` 段 → `差异化承载：True`，并追问应用类型/保障应用/业务类型 |
+| "关闭远程网关重启" | `远程优化` 段 → `远程网关重启：False` |
+| "将CEI阈值调高到85分" | `CEI体验感知` 段 → `CEI阈值：85分` |
+
+**注意**：当用户开启一个被禁用的段落（如差异化承载从 False → True），需要检查该段的必填子字段是否有值，若缺失则追问用户（例如：差异化承载开启后需要确认应用类型、保障应用和业务类型）。
 
 ## References
 

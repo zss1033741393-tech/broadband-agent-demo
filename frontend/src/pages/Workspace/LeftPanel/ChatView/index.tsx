@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import { useSimulationStore } from '@/store/simulationStore';
 import { matchSimCommand, FAULT_NAMES } from '@/utils/simulationMatcher';
+import { getProtectionPlan, type PlanGroup } from '@/api/protectionPlan';
 import MessageList from './MessageList';
+import ProtectionPlanCard from './ProtectionPlanCard';
 import InputBubble from './InputBubble';
 import InsightPhasePanel from './InsightPhasePanel';
 import SimBubble from './SimBubble';
@@ -20,16 +22,30 @@ interface Props {
 }
 
 function ChatView({ prefillMessage, lazySource }: Props) {
+  const [planGroups, setPlanGroups] = useState<PlanGroup[]>([]);
+
+  const fetchPlan = useCallback(async () => {
+    if (!prefillMessage) return;
+    try {
+      const data = await getProtectionPlan();
+      setPlanGroups(data.groups);
+    } catch {
+      setPlanGroups([]);
+    }
+  }, [prefillMessage]);
+
+  useEffect(() => { fetchPlan(); }, [fetchPlan]);
+
   const fixedPrefillReply = useMemo<Message[]>(
     () =>
       prefillMessage
         ? [
             {
-              id: 'prefill_fixed_reply',
+              id: 'prefill_plan_card',
               conversationId: '',
               role: 'assistant',
-              content: '当天该用户的保障方案为：\n\nAP补点推荐：\n- WIFI信号仿真：False\n- 应用卡顿仿真：False\n- AP补点推荐：False\n\nCEI体验感知：\n- CEI模型：普通\n- CEI粒度：天级\n- CEI阈值：70分\n\n故障诊断：\n- 诊断场景：上网慢 | 无法上网 | 游戏卡顿 | 直播卡顿\n- 偶发卡顿定界：False\n\n远程优化：\n- 远程优化触发时间：定时\n- 远程WIFI信道切换：True\n- 远程网关重启：True\n- 远程WIFI功率调优：True\n\n差异化承载：\n- 差异化承载：False\n\n请选择：\n1. 需要更新保障目标\n2. 直接编辑方案',
-              blocks: [{ type: 'text', content: '当天该用户的保障方案为：\n\nAP补点推荐：\n- WIFI信号仿真：False\n- 应用卡顿仿真：False\n- AP补点推荐：False\n\nCEI体验感知：\n- CEI模型：普通\n- CEI粒度：天级\n- CEI阈值：70分\n\n故障诊断：\n- 诊断场景：上网慢 | 无法上网 | 游戏卡顿 | 直播卡顿\n- 偶发卡顿定界：False\n\n远程优化：\n- 远程优化触发时间：定时\n- 远程WIFI信道切换：True\n- 远程网关重启：True\n- 远程WIFI功率调优：True\n\n差异化承载：\n- 差异化承载：False\n\n请选择：\n1. 需要更新保障目标\n2. 直接编辑方案' }],
+              content: '',
+              blocks: [{ type: 'protection_plan' as const }],
               createdAt: new Date(0).toISOString(),
             },
           ]
@@ -222,6 +238,7 @@ function ChatView({ prefillMessage, lazySource }: Props) {
             messages={visibleMessages}
             loading={messagesLoading}
             isStreaming={isStreaming}
+            planGroups={planGroups}
             onEditMessage={(content) => {
               if (isStreaming && activeId) {
                 abortStream(activeId);

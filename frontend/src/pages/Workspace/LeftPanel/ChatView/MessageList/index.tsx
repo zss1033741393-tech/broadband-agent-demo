@@ -2,10 +2,12 @@ import { useEffect, useRef } from 'react';
 import { Empty, Skeleton } from 'antd';
 import type { Message } from '@/types/message';
 import type { ChartItem } from '@/types/render';
+import type { PlanGroup } from '@/api/protectionPlan';
 import UserBubble from '../UserBubble';
 import ThinkingBlock from '../ThinkingBlock';
 import StepCard from '../StepCard';
 import ConclusionCard from '../ConclusionCard';
+import ProtectionPlanCard from '../ProtectionPlanCard';
 import InsightPhasePanel from '../InsightPhasePanel';
 import ErrorCard from '../ErrorCard';
 import ReportFloatBtn from '@/components/ReportFloatBtn';
@@ -15,13 +17,14 @@ interface Props {
   messages: Message[];
   loading: boolean;
   isStreaming: boolean;
+  planGroups?: PlanGroup[];
   onEditMessage: (content: string) => void;
   onViewReport?: (content: string, charts: ChartItem[]) => void;
   /** 为 true 时不在消息流中渲染 InsightPhasePanel（由外层面板负责渲染） */
   hideInsightPanel?: boolean;
 }
 
-function MessageList({ messages, loading, isStreaming, onEditMessage, onViewReport, hideInsightPanel }: Props) {
+function MessageList({ messages, loading, isStreaming, planGroups, onEditMessage, onViewReport, hideInsightPanel }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,6 +111,11 @@ function MessageList({ messages, loading, isStreaming, onEditMessage, onViewRepo
                       streaming={msg.streaming}
                     />
                   );
+                }
+                if (block.type === 'protection_plan') {
+                  return planGroups?.length
+                    ? <ProtectionPlanCard key="plan-card" groups={planGroups} />
+                    : null;
                 }
                 if (block.type === 'report_ready') {
                   return null;

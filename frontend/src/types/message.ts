@@ -44,7 +44,8 @@ export type MessageBlock =
   | { type: 'thinking'; content: string; startedAt: number; endedAt?: number }
   | { type: 'step'; stepId: string }
   | { type: 'text'; content: string }
-  | { type: 'report_ready'; content: string; charts: ChartItem[] };
+  | { type: 'report_ready'; content: string; charts: ChartItem[] }
+  | { type: 'protection_plan' };
 
 export interface Message {
   id: string;
