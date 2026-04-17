@@ -12,7 +12,6 @@ import InsightPhasePanel from '../InsightPhasePanel';
 import ErrorCard from '../ErrorCard';
 import ReportFloatBtn from '@/components/ReportFloatBtn';
 import ExperienceAssuranceCard from '../ExperienceAssuranceCard';
-import ProtectionPlanCard from '../ProtectionPlanCard';
 import styles from './MessageList.module.css';
 
 interface Props {
