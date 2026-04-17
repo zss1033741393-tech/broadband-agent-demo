@@ -111,12 +111,11 @@ get_skill_script(
 3. 如果用户有具体修改指令（如"将偶发卡顿定界开启"）→ 在当前方案基础上做**局部修改**
 4. 加载 `get_skill_instructions("plan_design")` 确保修改后方案符合 §输出结构契约 和 §禁用段子字段强制规范
 5. 调用 `plan_review/checker.py` 校验
-6. 返回修改后的完整方案（方案态），由 Orchestrator 走 §4.6 确认流程
+6. 返回修改后的完整方案（方案态），Orchestrator 将自动触发保存，无需用户确认
 
 **禁止**：
 - ❌ 不调用 goal_parsing（编辑不需要槽位追问）
 - ❌ 不重新从头生成方案（仅做局部修改）
-- ❌ 不自行保存方案（保存由 Orchestrator 确认后触发）
 
 ---
 
