@@ -159,3 +159,21 @@ class CreateConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     content: str
     deepThinking: bool = False
+
+
+# ─── 保障方案 ─────────────────────────────────────────────────────────────────
+
+class ProtectionPlanItem(BaseModel):
+    label: str
+    value: Union[str, bool]
+
+
+class ProtectionPlanGroup(BaseModel):
+    title: str
+    items: List[ProtectionPlanItem]
+
+
+class ProtectionPlanData(BaseModel):
+    groups: List[ProtectionPlanGroup]
+    planText: str
+    updatedAt: str

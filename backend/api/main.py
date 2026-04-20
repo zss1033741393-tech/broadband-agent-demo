@@ -28,6 +28,7 @@ from api.routes.conversations import router as conv_router
 from api.routes.messages import router as msg_router
 from api.routes.images import router as img_router
 from api.routes.simulation import router as sim_router
+from api.routes.protection_plan import router as plan_router
 
 setup_logger()
 
@@ -78,6 +79,7 @@ app.include_router(conv_router, prefix="/api")
 app.include_router(msg_router, prefix="/api")
 app.include_router(img_router, prefix="/api")
 app.include_router(sim_router, prefix="/api")
+app.include_router(plan_router, prefix="/api")
 
 
 @app.get("/health")

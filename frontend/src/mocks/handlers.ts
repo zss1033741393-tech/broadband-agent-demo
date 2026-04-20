@@ -66,6 +66,43 @@ export const handlers = [
     return replaySse(stream.events);
   }),
 
+  // 获取保障方案
+  http.get('/api/protection-plan', () =>
+    HttpResponse.json({
+      code: 0,
+      message: 'success',
+      data: {
+        groups: [
+          { title: 'AP补点推荐', items: [
+            { label: 'WIFI信号仿真', value: false },
+            { label: '应用卡顿仿真', value: false },
+            { label: 'AP补点推荐', value: false },
+          ]},
+          { title: 'CEI体验感知', items: [
+            { label: 'CEI模型', value: '普通' },
+            { label: 'CEI粒度', value: '天级' },
+            { label: 'CEI阈值', value: '70分' },
+          ]},
+          { title: '故障诊断', items: [
+            { label: '诊断场景', value: '上网慢 | 无法上网 | 游戏卡顿 | 直播卡顿' },
+            { label: '偶发卡顿定界', value: false },
+          ]},
+          { title: '远程优化', items: [
+            { label: '远程优化触发时间', value: '定时' },
+            { label: '远程WIFI信道切换', value: true },
+            { label: '远程网关重启', value: true },
+            { label: '远程WIFI功率调优', value: true },
+          ]},
+          { title: '差异化承载', items: [
+            { label: '差异化承载', value: false },
+          ]},
+        ],
+        planText: '',
+        updatedAt: '',
+      },
+    }),
+  ),
+
   // 图片资源 — 占位图
   http.get('/api/images/:imageId', ({ params }) => {
     const url = `https://placehold.co/1200x600/161B22/9CA3AF/png?text=${encodeURIComponent(

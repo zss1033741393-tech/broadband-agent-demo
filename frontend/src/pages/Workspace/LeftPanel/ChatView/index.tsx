@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useConversationStore } from '@/store/conversationStore';
 import { useSimulationStore } from '@/store/simulationStore';
 import { matchSimCommand, FAULT_NAMES } from '@/utils/simulationMatcher';
+import { getProtectionPlan, type PlanGroup } from '@/api/protectionPlan';
 import MessageList from './MessageList';
+import ProtectionPlanCard from './ProtectionPlanCard';
 import InputBubble from './InputBubble';
 import InsightPhasePanel from './InsightPhasePanel';
 import SimBubble from './SimBubble';
@@ -20,12 +22,26 @@ interface Props {
 }
 
 function ChatView({ prefillMessage, lazySource }: Props) {
+  const [planGroups, setPlanGroups] = useState<PlanGroup[]>([]);
+
+  const fetchPlan = useCallback(async () => {
+    if (!prefillMessage) return;
+    try {
+      const data = await getProtectionPlan();
+      setPlanGroups(data.groups);
+    } catch {
+      setPlanGroups([]);
+    }
+  }, [prefillMessage]);
+
+  useEffect(() => { fetchPlan(); }, [fetchPlan]);
+
   const fixedPrefillReply = useMemo<Message[]>(
     () =>
       prefillMessage
         ? [
             {
-              id: 'prefill_fixed_reply',
+              id: 'prefill_plan_card',
               conversationId: '',
               role: 'assistant',
               content: '',
@@ -230,6 +246,7 @@ function ChatView({ prefillMessage, lazySource }: Props) {
             messages={visibleMessages}
             loading={messagesLoading}
             isStreaming={isStreaming}
+            planGroups={planGroups}
             onEditMessage={(content) => {
               if (isStreaming && activeId) {
                 abortStream(activeId);

@@ -18,11 +18,12 @@ agents:
   # ─── 决策型 Agent ───
   planning:
     prompt: prompts/planning.md
-    description: "方案规划专家：目标解析 + 方案设计 + 方案评审，产出分段 Markdown 方案"
+    description: "方案规划专家：目标解析 + 方案设计 + 方案评审 + 方案持久化，产出分段 Markdown 方案"
     skills:
       - goal_parsing
       - plan_design
       - plan_review
+      - plan_store
     memory:
       max_turns: 20
 

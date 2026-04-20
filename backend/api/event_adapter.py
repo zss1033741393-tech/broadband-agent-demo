@@ -115,6 +115,13 @@ _MEMBER_DISPLAY_NAMES: dict[str, str] = {
     "provisioning-cei-chain": "ProvisioningAgent (体验保障链)",
 }
 
+# ─── Skill 工具分组 ────────────────────────────────────────────────────────────
+# 执行类：调用脚本并产出业务结果，发 sub_step SSE（前端渲染）+ 写 observability
+_SKILL_EXEC_TOOLS: frozenset[str] = frozenset({"get_skill_script"})
+# 加载类：读取 SKILL.md / references 等知识文档，发 sub_step SSE（前端按 name 过滤）+ 写 observability
+_SKILL_LOAD_TOOLS: frozenset[str] = frozenset({"get_skill_instructions", "get_skill_reference"})
+_ALL_SKILL_TOOLS: frozenset[str] = _SKILL_EXEC_TOOLS | _SKILL_LOAD_TOOLS
+
 
 def _canonical_member_id(raw: Optional[str]) -> str:
     """把 agno 原始 member_id / agent_id 归一化为 SSE 协议里的 kebab-case。"""
@@ -399,153 +406,232 @@ async def _adapt_body(
                 continue
 
             # ── sub_step 计时开始 ─────────────────────────────────────────
-            if etype == "ToolCallStarted" and not leader and tname == "get_skill_script":
+            if etype == "ToolCallStarted" and not leader and tname in _ALL_SKILL_TOOLS:
                 # 工具调用进入说明 thinking 段结束，flush 段级 trace
                 if reasoning_buffer:
                     _flush_reasoning()
 
                 args = _tool_args(event)
-                skill_name = args.get("skill_name", "unknown")
                 agent_id = getattr(event, "agent_id", "") or ""
-                # key 用原始 agent_id，避免不同 member 的相同 skill 互相踩
-                key = f"{agent_id}:{skill_name}"
-                skill_start_times.setdefault(key, [])
-                skill_start_times[key].append(time.monotonic())
-                # 缓存调用参数，供 ToolCallCompleted 时发给前端
-                skill_start_args.setdefault(key, [])
-                skill_start_args[key].append({
-                    "scriptPath": args.get("script_path", ""),
-                    "callArgs": args.get("args", []),
-                })
-                # ── UUID 注册：把 agent_id(UUID) → step 映射写入 steps_by_id ──────
-                # ReasoningContentDelta 事件只带 agent_id(UUID)，不带 agent_name；
-                # 在此首次见到真实 agent_id 时补注册，之后 thinking 事件才能正确归属。
-                step_for_evt_start = _step_for_event(event, leader=False)
-                if step_for_evt_start is not None and agent_id and agent_id not in steps_by_id:
-                    steps_by_id[agent_id] = step_for_evt_start
 
-                # ── flush：先 pending_text，再 pending_thinking，保证顺序 ──────────
-                if step_for_evt_start is not None:
-                    if step_for_evt_start.pending_text:
-                        step_for_evt_start.items.append({
-                            "type": "text",
-                            "content": step_for_evt_start.pending_text,
-                        })
-                        step_for_evt_start.pending_text = ""
-                    if step_for_evt_start.pending_thinking:
-                        step_for_evt_start.items.append({
-                            "type": "thinking",
-                            "content": step_for_evt_start.pending_thinking,
-                            "startedAt": 0,
-                            "endedAt": 0,
-                        })
-                        step_for_evt_start.pending_thinking = ""
+                if tname in _SKILL_EXEC_TOOLS:
+                    # ── 执行类（get_skill_script）：完整逻辑 ─────────────────────
+                    skill_name = args.get("skill_name", "unknown")
+                    # key 用原始 agent_id，避免不同 member 的相同 skill 互相踩
+                    key = f"{agent_id}:{skill_name}"
+                    skill_start_times.setdefault(key, [])
+                    skill_start_times[key].append(time.monotonic())
+                    # 缓存调用参数，供 ToolCallCompleted 时发给前端
+                    skill_start_args.setdefault(key, [])
+                    skill_start_args[key].append({
+                        "scriptPath": args.get("script_path", ""),
+                        "callArgs": args.get("args", []),
+                    })
+                    # ── UUID 注册：把 agent_id(UUID) → step 映射写入 steps_by_id ──
+                    # ReasoningContentDelta 事件只带 agent_id(UUID)，不带 agent_name；
+                    # 在此首次见到真实 agent_id 时补注册，之后 thinking 事件才能正确归属。
+                    step_for_evt_start = _step_for_event(event, leader=False)
+                    if step_for_evt_start is not None and agent_id and agent_id not in steps_by_id:
+                        steps_by_id[agent_id] = step_for_evt_start
 
-                # ── trace: tool_invoke ────────────────────────────────
-                if tracer is not None:
-                    tracer.tool_invoke(
-                        skill_name, args, agent=agent_name, is_leader=False
-                    )
+                    # ── flush：先 pending_text，再 pending_thinking，保证顺序 ────
+                    if step_for_evt_start is not None:
+                        if step_for_evt_start.pending_text:
+                            step_for_evt_start.items.append({
+                                "type": "text",
+                                "content": step_for_evt_start.pending_text,
+                            })
+                            step_for_evt_start.pending_text = ""
+                        if step_for_evt_start.pending_thinking:
+                            step_for_evt_start.items.append({
+                                "type": "thinking",
+                                "content": step_for_evt_start.pending_thinking,
+                                "startedAt": 0,
+                                "endedAt": 0,
+                            })
+                            step_for_evt_start.pending_thinking = ""
+
+                    # ── trace: tool_invoke ────────────────────────────
+                    if tracer is not None:
+                        tracer.tool_invoke(
+                            skill_name, args, agent=agent_name, is_leader=False
+                        )
+                else:
+                    # ── 加载类（get_skill_instructions / get_skill_reference）────
+                    # key 用 tname 避免与执行类的 skill_name key 冲突
+                    key = f"{agent_id}:{tname}"
+                    skill_start_times.setdefault(key, []).append(time.monotonic())
+                    skill_start_args.setdefault(key, []).append({
+                        "scriptPath": "",
+                        "callArgs": list(args.values()) if args else [],
+                    })
+                    # UUID 早期注册：get_skill_instructions 在 thinking 之前发生，
+                    # 提前注册 agent_id → step 映射，使后续 thinking 事件能正确归属。
+                    step_for_load_start = _step_for_event(event, leader=False)
+                    if step_for_load_start is not None and agent_id and agent_id not in steps_by_id:
+                        steps_by_id[agent_id] = step_for_load_start
+
+                    if tracer is not None:
+                        tracer.tool_invoke(tname, args, agent=agent_name, is_leader=False)
                 continue
 
             # ── sub_step 完成 ─────────────────────────────────────────────
-            if etype == "ToolCallCompleted" and not leader and tname == "get_skill_script":
+            if etype == "ToolCallCompleted" and not leader and tname in _ALL_SKILL_TOOLS:
                 args = _tool_args(event)
-                skill_name = args.get("skill_name", "unknown")
                 agent_id = getattr(event, "agent_id", "") or ""
-                key = f"{agent_id}:{skill_name}"
-                times_list = skill_start_times.get(key, [])
-                t0 = times_list.pop(0) if times_list else None
-                if not times_list:
-                    skill_start_times.pop(key, None)
-                duration_ms = int((time.monotonic() - t0) * 1000) if t0 else 0
-
-                # 取出对应的调用参数
-                args_list = skill_start_args.get(key, [])
-                call_info = args_list.pop(0) if args_list else {}
-                if not args_list:
-                    skill_start_args.pop(key, None)
-
                 tool = getattr(event, "tool", None)
                 result_raw = getattr(tool, "result", None) or ""
-                stdout, stderr = _extract_stdout_stderr(result_raw)
+                completed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-                # 用 _step_for_event 查对应 step（同时尝试 agent_name / agent_id），
-                # fallback 也优先用 agent_name 归一化，避免 agent_id 是 UUID 时跑偏
+                # 确定归属 step
                 step_for_evt = _step_for_event(event, leader=False)
                 if step_for_evt is not None:
                     step_id = step_for_evt.step_id
                 else:
                     raw_name = getattr(event, "agent_name", None) or agent_id
                     step_id = _canonical_member_id(str(raw_name))
-                sub_step_id = f"{step_id}_{skill_name}"
-                completed_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-                sub = {
-                    "subStepId": sub_step_id,
-                    "name": skill_name,
-                    "scriptPath": call_info.get("scriptPath", ""),
-                    "callArgs": call_info.get("callArgs", []),
-                    "stdout": stdout[:500],
-                    "stderr": stderr[:500],
-                    "completedAt": completed_at,
-                    "durationMs": duration_ms,
-                    "error": _is_error_result(result_raw),
-                }
-                if step_for_evt is not None:
-                    step_for_evt.sub_steps.append(sub)
-                    # sub_step 块追加到有序 items 数组
-                    step_for_evt.items.append({"type": "sub_step", "data": sub})
+                if tname in _SKILL_EXEC_TOOLS:
+                    # ── 执行类（get_skill_script）：完整逻辑 ─────────────────────
+                    skill_name = args.get("skill_name", "unknown")
+                    key = f"{agent_id}:{skill_name}"
+                    times_list = skill_start_times.get(key, [])
+                    t0 = times_list.pop(0) if times_list else None
+                    if not times_list:
+                        skill_start_times.pop(key, None)
+                    duration_ms = int((time.monotonic() - t0) * 1000) if t0 else 0
 
-                yield format_sse("sub_step", {"stepId": step_id, **sub}), agg
+                    # 取出对应的调用参数
+                    args_list = skill_start_args.get(key, [])
+                    call_info = args_list.pop(0) if args_list else {}
+                    if not args_list:
+                        skill_start_args.pop(key, None)
 
-                # ── trace: tool_result + sessions.db.tool_calls ──────
-                if tracer is not None:
-                    tracer.tool_result(
-                        skill_name,
-                        result_raw,
-                        latency_ms=duration_ms,
-                        agent=agent_name,
-                        is_leader=False,
-                    )
-                if _db is not None and db_session_id is not None:
-                    _db.insert_tool_call(
-                        db_session_id,
-                        skill_name=skill_name,
-                        inputs_json=_ensure_json_str(call_info.get("callArgs", [])),
-                        outputs_json=_ensure_json_str(result_raw),
-                        latency_ms=duration_ms,
-                        status="ok",
-                        message_id=user_msg_id,
-                    )
+                    stdout, stderr = _extract_stdout_stderr(result_raw)
+                    sub_step_id = f"{step_id}_{skill_name}"
 
-                # wifi_simulation 单独通道：解析 image_paths + data_paths，
-                # 聚合成 **单条** wifi_result 事件（2 PNG + 4 JSON，每项含 kind/phase）。
-                if skill_name == "wifi_simulation":
-                    for rb in _emit_wifi_simulation_render(agg.message_id, result_raw):
-                        agg.render_blocks.append(rb)
-                        yield format_sse("wifi_result", rb), agg
+                    sub = {
+                        "subStepId": sub_step_id,
+                        "name": skill_name,
+                        "scriptPath": call_info.get("scriptPath", ""),
+                        "callArgs": call_info.get("callArgs", []),
+                        "stdout": stdout[:500],
+                        "stderr": stderr[:500],
+                        "completedAt": completed_at,
+                        "durationMs": duration_ms,
+                        "error": _is_error_result(result_raw),
+                    }
+                    if step_for_evt is not None:
+                        step_for_evt.sub_steps.append(sub)
+                        # sub_step 块追加到有序 items 数组
+                        step_for_evt.items.append({"type": "sub_step", "data": sub})
 
-                # experience_assurance 单独通道：解析 result 字段，
-                # 聚合成单条 experience_assurance_result 事件，供前端渲染保障配置表格。
-                if skill_name == "experience_assurance":
-                    for rb in _emit_experience_assurance_result(result_raw):
-                        agg.render_blocks.append(rb)
-                        yield format_sse("experience_assurance_result", rb), agg
+                    yield format_sse("sub_step", {"stepId": step_id, **sub}), agg
 
-                # insight 场景：每次 insight_query / insight_report 完成时，同时
-                # 下发 `report` 和 `render` 两条 SSE 事件，payload 完全一致。
-                # 职责划分：
-                #   - `report` 主通道：前端产品流程渲染用（insight 的 charts + markdown）
-                #   - `render` debug 通道：保留旧事件名 + 相同 payload，供前端对比 /
-                #     过渡期消费；未来 render 将专供图片类可视化
-                # 前端自主选择消费其中一条通道（消费两条会重复渲染）。
-                # 持久化只写一份到 render_blocks，避免历史回放出现两倍内容。
-                if step_for_evt is not None and step_for_evt.step_id == "insight":
-                    for rb in _emit_insight_render(skill_name, result_raw, sub_step_id):
-                        agg.render_blocks.append(rb)              # 持久化一次
-                        yield format_sse("report", rb), agg       # 主通道
-                        yield format_sse("render", rb), agg       # debug 冗余
+                    # ── trace: tool_result + sessions.db.tool_calls ──────
+                    if tracer is not None:
+                        tracer.tool_result(
+                            skill_name,
+                            result_raw,
+                            latency_ms=duration_ms,
+                            agent=agent_name,
+                            is_leader=False,
+                        )
+                    if _db is not None and db_session_id is not None:
+                        _db.insert_tool_call(
+                            db_session_id,
+                            skill_name=skill_name,
+                            inputs_json=_ensure_json_str(call_info.get("callArgs", [])),
+                            outputs_json=_ensure_json_str(result_raw),
+                            latency_ms=duration_ms,
+                            status="ok",
+                            message_id=user_msg_id,
+                        )
+
+                    # wifi_simulation 单独通道：解析 image_paths + data_paths，
+                    # 聚合成 **单条** wifi_result 事件（2 PNG + 4 JSON，每项含 kind/phase）。
+                    if skill_name == "wifi_simulation":
+                        for rb in _emit_wifi_simulation_render(agg.message_id, result_raw):
+                            agg.render_blocks.append(rb)
+                            yield format_sse("wifi_result", rb), agg
+
+                    # experience_assurance 单独通道：解析 result 字段，
+                    # 聚合成单条 experience_assurance_result 事件，供前端渲染保障配置表格。
+                    if skill_name == "experience_assurance":
+                        for rb in _emit_experience_assurance_result(result_raw):
+                            agg.render_blocks.append(rb)
+                            yield format_sse("experience_assurance_result", rb), agg
+
+                    # insight 场景：每次 insight_query / insight_report 完成时，同时
+                    # 下发 `report` 和 `render` 两条 SSE 事件，payload 完全一致。
+                    # 职责划分：
+                    #   - `report` 主通道：前端产品流程渲染用（insight 的 charts + markdown）
+                    #   - `render` debug 通道：保留旧事件名 + 相同 payload，供前端对比 /
+                    #     过渡期消费；未来 render 将专供图片类可视化
+                    # 前端自主选择消费其中一条通道（消费两条会重复渲染）。
+                    # 持久化只写一份到 render_blocks，避免历史回放出现两倍内容。
+                    if step_for_evt is not None and step_for_evt.step_id == "insight":
+                        for rb in _emit_insight_render(skill_name, result_raw, sub_step_id):
+                            agg.render_blocks.append(rb)              # 持久化一次
+                            yield format_sse("report", rb), agg       # 主通道
+                            yield format_sse("render", rb), agg       # debug 冗余
+
+                else:
+                    # ── 加载类（get_skill_instructions / get_skill_reference）────
+                    # name 字段用工具名本身，前端据此识别并决定是否渲染
+                    key = f"{agent_id}:{tname}"
+                    times_list = skill_start_times.get(key, [])
+                    t0 = times_list.pop(0) if times_list else None
+                    if not times_list:
+                        skill_start_times.pop(key, None)
+                    duration_ms = int((time.monotonic() - t0) * 1000) if t0 else 0
+
+                    args_list = skill_start_args.get(key, [])
+                    call_info = args_list.pop(0) if args_list else {}
+                    if not args_list:
+                        skill_start_args.pop(key, None)
+
+                    sub_step_id = f"{step_id}_{tname}"
+                    sub = {
+                        "subStepId": sub_step_id,
+                        "name": tname,                          # "get_skill_instructions" / "get_skill_reference"
+                        "scriptPath": "",
+                        "callArgs": call_info.get("callArgs", []),
+                        "stdout": str(result_raw)[:500],
+                        "stderr": "",
+                        "completedAt": completed_at,
+                        "durationMs": duration_ms,
+                        "error": False,
+                    }
+                    if step_for_evt is not None:
+                        step_for_evt.sub_steps.append(sub)
+                        step_for_evt.items.append({"type": "sub_step", "data": sub})
+
+                    yield format_sse("sub_step", {"stepId": step_id, **sub}), agg
+
+                    # ── trace + DB：outputs 只存元信息，不存全文（SKILL.md / examples.md 数千字符）
+                    skill_label = args.get("skill_name", "")
+                    if tracer is not None:
+                        tracer.tool_result(
+                            tname,
+                            result_raw,
+                            latency_ms=duration_ms,
+                            agent=agent_name,
+                            is_leader=False,
+                        )
+                    if _db is not None and db_session_id is not None:
+                        _db.insert_tool_call(
+                            db_session_id,
+                            skill_name=tname,
+                            inputs_json=_ensure_json_str(args),
+                            outputs_json=_ensure_json_str({
+                                "skill": skill_label,
+                                "chars": len(str(result_raw)),
+                            }),
+                            latency_ms=duration_ms,
+                            status="ok",
+                            message_id=user_msg_id,
+                        )
 
                 continue
 
