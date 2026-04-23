@@ -406,9 +406,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             case 'sub_step': {
               const d = e.data as SubStepEvent;
               if (SKILL_LOAD_TOOLS.has(d.name)) break;
+              let displayName: string | undefined;
+              if (d.scriptPath === 'run_phase.py') {
+                try {
+                  const stepCount = JSON.parse(d.callArgs?.[0] ?? '{}').steps?.length;
+                  displayName = `批量分析（${stepCount ?? '?'} 步）`;
+                } catch {
+                  displayName = '批量分析';
+                }
+              }
               const sub: SubStep = {
                 subStepId: d.subStepId,
                 name: d.name,
+                displayName,
                 scriptPath: d.scriptPath,
                 callArgs: d.callArgs,
                 stdout: d.stdout,
