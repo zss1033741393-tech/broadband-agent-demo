@@ -4,6 +4,7 @@ import type { InsightState } from './insight';
 export interface SubStep {
   subStepId: string;
   name: string;
+  displayName?: string;
   scriptPath?: string;
   callArgs?: string[];
   stdout?: string;
