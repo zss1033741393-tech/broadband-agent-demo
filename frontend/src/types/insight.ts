@@ -3,6 +3,7 @@ export type StepStatus = 'pending' | 'running' | 'done';
 
 export interface InsightStep {
   stepId: number;
+  stepName?: string;
   insightTypes: string[];
   rationale: string;
   status: StepStatus;

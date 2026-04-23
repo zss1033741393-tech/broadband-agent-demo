@@ -117,10 +117,18 @@ export class InsightEventParser {
             type: 'decompose_result',
             phaseId: d.phase_id,
             steps: (d.steps ?? []).map((s: Record<string, unknown>) => ({
-              stepId: s.step as number,
-              insightTypes: (s.insight_types as string[]) ?? [],
+              // 新格式用 step_id，旧格式用 step，兼容两者
+              stepId: (s.step_id ?? s.step) as number,
+              stepName: (s.step_name as string) ?? '',
+              // 新格式 insight_type 是单字符串，旧格式 insight_types 是数组
+              insightTypes: Array.isArray(s.insight_types)
+                ? (s.insight_types as string[])
+                : s.insight_type
+                  ? [s.insight_type as string]
+                  : [],
               rationale: (s.rationale as string) ?? '',
               status: 'pending' as const,
+              // query_config 存在但前端不使用，直接忽略
             })),
           };
         case 'phase_start':
