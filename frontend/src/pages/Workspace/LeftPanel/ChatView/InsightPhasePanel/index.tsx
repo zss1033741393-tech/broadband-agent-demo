@@ -41,9 +41,7 @@ function InsightStepRow({ step }: { step: InsightStep }) {
       <div className={styles.stepRow}>
         {step.status === 'done'
           ? <CheckCircleFilled className={styles.stepIconDone} />
-          : step.status === 'running'
-            ? <span className={styles.spinRingSmall} />
-            : <span className={styles.stepDot} />
+          : <span className={styles.stepDot} />
         }
         <span className={styles.stepLabel}>{label}</span>
         {step.significance !== undefined && step.status === 'done' && (
