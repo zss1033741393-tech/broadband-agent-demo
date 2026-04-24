@@ -117,10 +117,18 @@ export class InsightEventParser {
             type: 'decompose_result',
             phaseId: d.phase_id,
             steps: (d.steps ?? []).map((s: Record<string, unknown>) => ({
-              stepId: s.step as number,
-              insightTypes: (s.insight_types as string[]) ?? [],
+              // 新格式用 step_id，旧格式用 step，兼容两者
+              stepId: (s.step_id ?? s.step) as number,
+              stepName: (s.step_name as string) ?? '',
+              // 新格式 insight_type 是单字符串，旧格式 insight_types 是数组
+              insightTypes: Array.isArray(s.insight_types)
+                ? (s.insight_types as string[])
+                : s.insight_type
+                  ? [s.insight_type as string]
+                  : [],
               rationale: (s.rationale as string) ?? '',
               status: 'pending' as const,
+              // query_config 存在但前端不使用，直接忽略
             })),
           };
         case 'phase_start':
@@ -133,6 +141,17 @@ export class InsightEventParser {
             summary: d.summary ?? '',
             significance: d.significance ?? 0,
             status: d.status ?? 'ok',
+          };
+        case 'phase_complete':
+          return {
+            type: 'phase_complete',
+            phaseId: d.phase_id,
+            steps: (d.steps ?? []).map((s: Record<string, unknown>) => ({
+              stepId: s.step_id as number,
+              status: (s.status as string) ?? 'ok',
+              summary: (s.summary as string) ?? '',
+              significance: (s.significance as number) ?? 0,
+            })),
           };
         case 'reflect':
           return {
@@ -202,9 +221,27 @@ export function applyInsightEvent(
               ? s
               : { ...s, status: 'done', summary: event.summary, significance: event.significance },
           );
-          // 所有 step 完成则 phase 也标为 done
           const allDone = steps.length > 0 && steps.every((s) => s.status === 'done');
           return { ...p, steps, status: allDone ? 'done' : p.status };
+        }),
+      };
+    }
+
+    case 'phase_complete': {
+      return {
+        ...state,
+        phases: state.phases.map((p) => {
+          if (p.phaseId !== event.phaseId) return p;
+          const steps: InsightStep[] = p.steps.map((s) => {
+            const result = event.steps.find((r) => r.stepId === s.stepId);
+            return {
+              ...s,
+              status: 'done' as const,
+              summary: result?.summary ?? s.summary,
+              significance: result?.significance ?? s.significance,
+            };
+          });
+          return { ...p, steps, status: 'done' };
         }),
       };
     }
@@ -212,15 +249,19 @@ export function applyInsightEvent(
     case 'reflect': {
       return {
         ...state,
-        phases: state.phases.map((p) =>
-          p.phaseId !== event.phaseId
-            ? p
-            : {
-                ...p,
-                status: 'reflected',
-                reflection: { choice: event.choice, reason: event.reason },
-              },
-        ),
+        phases: state.phases.map((p) => {
+          if (p.phaseId !== event.phaseId) return p;
+          // 兜底：phase_complete 未到达时把还是 pending 的 step 一并标为 done
+          const steps = p.steps.map((s) =>
+            s.status === 'pending' ? { ...s, status: 'done' as const } : s,
+          );
+          return {
+            ...p,
+            steps,
+            status: 'reflected',
+            reflection: { choice: event.choice, reason: event.reason },
+          };
+        }),
       };
     }
   }

@@ -35,15 +35,13 @@ function PhaseIcon({ status }: { status: PhaseStatus }) {
 }
 
 function InsightStepRow({ step }: { step: InsightStep }) {
-  const label = step.rationale || step.insightTypes.join(' · ') || `Step ${step.stepId}`;
+  const label = step.stepName || step.rationale || step.insightTypes.join(' · ') || `Step ${step.stepId}`;
   return (
     <div className={`${styles.stepBlock} ${styles[`step_${step.status}`]}`}>
       <div className={styles.stepRow}>
         {step.status === 'done'
           ? <CheckCircleFilled className={styles.stepIconDone} />
-          : step.status === 'running'
-            ? <span className={styles.spinRingSmall} />
-            : <span className={styles.stepDot} />
+          : <span className={styles.stepDot} />
         }
         <span className={styles.stepLabel}>{label}</span>
         {step.significance !== undefined && step.status === 'done' && (

@@ -149,7 +149,7 @@ function StepCard({ step, defaultExpanded = true, streaming }: Props) {
                     <span className={`${styles.dot} ${isLast ? styles.dotLast : ''}`} />
                     <div className={styles.tlContent}>
                       <div className={styles.tlHeader}>
-                        <span className={styles.tlName}>{sub.name}</span>
+                        <span className={styles.tlName}>{sub.displayName ?? sub.name}</span>
                         <span className={styles.tlTime}>
                           {dayjs(sub.completedAt).format('HH:mm:ss')} · {formatDuration(sub.durationMs)}
                         </span>

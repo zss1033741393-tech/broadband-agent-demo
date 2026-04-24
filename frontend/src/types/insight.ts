@@ -3,6 +3,7 @@ export type StepStatus = 'pending' | 'running' | 'done';
 
 export interface InsightStep {
   stepId: number;
+  stepName?: string;
   insightTypes: string[];
   rationale: string;
   status: StepStatus;
@@ -32,4 +33,5 @@ export type InsightEvent =
   | { type: 'decompose_result'; phaseId: number; steps: InsightStep[] }
   | { type: 'phase_start'; phaseId: number }
   | { type: 'step_result'; phaseId: number; stepId: number; summary: string; significance: number; status: string }
+  | { type: 'phase_complete'; phaseId: number; steps: { stepId: number; status: string; summary: string; significance: number }[] }
   | { type: 'reflect'; phaseId: number; choice: string; reason: string };
